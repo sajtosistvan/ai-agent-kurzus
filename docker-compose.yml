@@ -1,0 +1,27 @@
+# Plantbase — lokális Postgres (OrbStack futtatja). Helyben dolgozunk, nincs felhő-DB.
+# Két jog: a plantbase (RW) viszi a sémát/migrációt/seedet, a plantbase_ro (RO)
+# az agent runSql-jét szolgálja ki (NFR1). A RO szerepkört az initdb script hozza létre.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: plantbase-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: plantbase
+      POSTGRES_PASSWORD: plantbase
+      POSTGRES_DB: plantbase
+    ports:
+      # Host 5433 (a 5432-t egy másik projekt foglalja); konténeren belül 5432.
+      - '5433:5432'
+    volumes:
+      - plantbase-pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U plantbase -d plantbase']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  plantbase-pgdata:
