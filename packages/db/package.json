@@ -1,0 +1,8 @@
+{
+  "name": "@plantbase/db",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "db"
+  }
+}
