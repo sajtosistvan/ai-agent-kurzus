@@ -1,111 +1,159 @@
-# New Nx Repository
+# 🌱 Plantbase
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+> Parancssori (CLI) AI agent, amely a természetes nyelvű kérdést **SQL-re fordítja** egy növény-katalógus (`products`) felett, **read-only** lefuttatja, és **természetes nyelvű választ** ad. Önkiszolgáló analitika SQL-tudás nélkül.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+A persona egy **lakberendező**, aki a szobák adottságai (fény, méret), az ügyfél igényei és a büdzsé alapján állít össze növénycsomagot. Az adat megvan, de a kinyerése SQL-tudást igényelne — a Plantbase ezt automatizálja.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/docs/technologies/typescript/introduction?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+A projekt egy AI-agent kurzus kísérleti repója: a cél, hogy az agent mechanikája **az alapoktól, rétegről rétegre** látszódjon (echo → LLM → SQL-es tool), agent-framework nélkül.
 
-## Finish your Nx platform setup
+---
 
-🚀 [Finish setting up your workspace](https://cloud.nx.app/connect/pulcOUOMPt) to get faster builds with remote caching, distributed task execution, and self-healing CI. [Learn more about Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud).
-
-## Generate a library
-
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
-```
-
-## Run tasks
-
-To build the library use:
-
-```sh
-npx nx run pkg1:build
-```
-
-To run any task with Nx use:
-
-```sh
-npx nx run <project-name>:<target>
-```
-
-These targets are either [inferred automatically](https://nx.dev/docs/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/docs/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
+## Hogyan működik?
 
 ```
-npx nx release
+felhasználó kérdése
+        │
+        ▼
+   apps/cli  ──────────►  packages/core  (askAgent)
+  (commander,             │
+   readline)              │  1. system prompt (séma + szabályok, XML-tagolt)
+                          │  2. Anthropic messages.create  ◄── kézzel írt
+                          │  3. a modell SQL-t ír  ──► runSql tool       tool-use loop
+                          │  4. SELECT-guard + READ-ONLY kapcsolat ──► Postgres (products)
+                          │  5. sorok ──► a modell magyar választ ad
+                          ▼
+                 természetes nyelvű válasz  +  logs/<timestamp>.jsonl
 ```
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+A `packages/core` **framework-agnostic**: nem ismeri a belépési pontot (CLI/API/web). Az `askAgent` az Anthropic SDK fölé épülő, **kézzel írt, többlépéses tool-use loop** — szándékosan nincs agent-framework, hogy a mechanika látható maradjon.
 
-[Learn more about Nx release &raquo;](https://nx.dev/docs/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Keep TypeScript project references up to date
+## Háromrétegű read-only védelem (NFR1)
 
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
+Az agent **soha nem módosítja az adatot**. Három, egymástól független réteg gondoskodik erről:
 
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+1. **DB-szerepkör** — a `runSql` a `plantbase_ro` (csak `SELECT`) szerepkörön fut, ami fizikailag sem tud írni.
+2. **SELECT-guard** — a generált SQL-t a `core/sql-guard` ellenőrzi: csak `SELECT`/`WITH … SELECT`, egyetlen utasítás, kötelező `LIMIT`.
+3. **Read-only tranzakció** — minden lekérdezés `START TRANSACTION READ ONLY`-ban fut.
 
-```sh
-npx nx sync
+A Prisma (séma, migráció, seed) ezzel szemben a **READ-WRITE** kapcsolatot használja — két DB-URL, két jog.
+
+---
+
+## Tech stack
+
+| Réteg          | Eszköz                                                       |
+| -------------- | ------------------------------------------------------------ |
+| Monorepo       | Nx 23, pnpm workspaces, TypeScript (strict), Node LTS        |
+| Agent          | `@anthropic-ai/sdk` (hivatalos kliens) + saját tool-use loop |
+| Validáció      | Zod (rendszer-határokon)                                     |
+| CLI            | commander + `node:readline`                                  |
+| Adatbázis      | PostgreSQL 17 (docker-compose, OrbStack), `pg` (read-only)   |
+| ORM / migráció | Prisma 6 (séma, migráció, seed)                              |
+| Tooling        | Vitest, ESLint, Prettier, tsx                                |
+
+---
+
+## Projektstruktúra
+
+```
+.
+├── apps/
+│   └── cli/            # plantbase CLI: ask parancs + interaktív mód
+├── packages/
+│   ├── core/           # agent-logika (framework-agnostic)
+│   │   └── src/lib/    # agent, config, system-prompt, sql-guard,
+│   │                   # db-readonly, runsql-tool, logger, echo
+│   └── db/             # Prisma lib: séma, migráció, generált kliens, seed
+├── docs/               # BRS, architektúra, stack, konvenciók, system-prompt, terv
+├── docker-compose.yml  # Postgres + read-only role (initdb)
+└── .env.example        # két DB-kapcsolat (RW/RO) + Anthropic kulcs/model
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+---
 
-```sh
-npx nx sync:check
+## Előfeltételek
+
+- Node LTS, **pnpm** (`corepack enable`)
+- **Docker** (OrbStack a Postgreshez)
+- `psql` (opcionális, kézi ellenőrzéshez)
+- **Anthropic API-kulcs**
+
+## Indulás
+
+```bash
+# 1. Függőségek (a postinstall lefuttatja a `prisma generate`-et)
+pnpm install
+
+# 2. Környezeti változók — másold és töltsd ki az ANTHROPIC_API_KEY-t
+cp .env.example .env
+
+# 3. Postgres indítása (a read-only role-t az initdb hozza létre)
+docker compose up -d
+
+# 4. Séma + kész seed (~30 növény) betöltése
+pnpm db:migrate        # init_products migráció
+pnpm db:seed           # idempotens: 30 növény
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+> A Postgres a **host 5433-as porton** fut (a 5432-t gyakran foglalja másik projekt) — lásd `docker-compose.yml` és `.env.example`.
 
-## Nx Cloud
+## Használat
 
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+```bash
+# Egyszeri kérdés
+pnpm cli ask "mutass 3 pet-safe, alacsony fényigényű növényt raktáron, 5000 Ft alatt"
 
-- [Remote caching](https://nx.dev/docs/features/ci-features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/docs/features/ci-features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/docs/features/ci-features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/docs/features/ci-features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+# Interaktív mód (több kérdés, 'exit'-ig)
+pnpm cli ask
 
-### Set up CI (non-Github Actions CI)
+# A teljes system prompt + üzenet-tömb kiírása (átláthatóság)
+pnpm cli ask --show-prompt "milyen pozsgásokat ajánlasz?"
 
-**Note:** This is only required if your CI provider is not GitHub Actions.
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+# Súgó
+pnpm cli --help
 ```
 
-[Learn more about Nx on CI](https://nx.dev/docs/features/ci-features?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Minden interakció naplózva: `logs/<timestamp>.jsonl` (system prompt, üzenetek, **generált SQL**, eredmény, válasz, token-felhasználás).
 
-## Install Nx Console
+A modell `.env`-ből állítható (`ANTHROPIC_MODEL`); költségérzékeny demóhoz pl. `claude-haiku-4-5`.
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+---
 
-[Install Nx Console &raquo;](https://nx.dev/docs/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Hasznos scriptek
 
-## 🔗 Learn More
+| Script                    | Mit csinál                                      |
+| ------------------------- | ----------------------------------------------- |
+| `pnpm cli ask "…"`        | CLI buildelése + futtatása                      |
+| `pnpm db:migrate`         | Prisma migráció (dev)                           |
+| `pnpm db:seed`            | Seed betöltése (idempotens)                     |
+| `pnpm db:studio`          | Prisma Studio                                   |
+| `pnpm build`              | minden projekt buildje (`nx run-many -t build`) |
+| `pnpm test`               | Vitest (unit tesztek)                           |
+| `pnpm lint` / `typecheck` | ESLint / `tsc`                                  |
+| `pnpm format`             | Prettier                                        |
 
-- [Nx Documentation](https://nx.dev/docs)
-- [Crafting Your Workspace Tutorial](https://nx.dev/docs/getting-started/tutorials/crafting-your-workspace)
-- [Module Boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
-- [Releasing Packages](https://nx.dev/docs/features/manage-releases)
-- [Nx Plugins](https://nx.dev/docs/concepts/nx-plugins)
-- [Nx Cloud](https://nx.dev/nx-cloud)
+---
 
-## 💬 Community
+## A három implementációs fázis
 
-Join the Nx community:
+A működés rétegről rétegre épül (lásd `docs/proposal-implementacio.md`):
 
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+1. **CLI echo** — a CLI visszaírja a bemenetet (még nincs LLM, nincs DB).
+2. **LLM, DB nélkül** — sima `messages.create`; adat-kérdésnél az agent **őszintén jelzi**, hogy nincs adatbázis-hozzáférése, és nem talál ki adatot.
+3. **SQL-es interakció** — a `runSql` toollal a kérdésből SQL lesz, read-only lefut, és valós, természetes nyelvű választ kapsz.
+
+---
+
+## Dokumentáció
+
+A részletek a [`docs/`](docs/) mappában:
+
+- [`brs-plantbase.md`](docs/brs-plantbase.md) — üzleti követelmények (BRS), ROI, scope
+- [`architektura.md`](docs/architektura.md) — fájlstruktúra és kulcsdöntések
+- [`stack.md`](docs/stack.md) — tech stack és a `products` séma
+- [`konvenciok.md`](docs/konvenciok.md) — kódkonvenciók, prompt-stílus
+- [`system-prompt.md`](docs/system-prompt.md) — a termék-agent system promptja
+- [`dev-workflow.md`](docs/dev-workflow.md) — git, hookok, dokumentáció
+- [`proposal-implementacio.md`](docs/proposal-implementacio.md) — a fázisolt implementációs terv
