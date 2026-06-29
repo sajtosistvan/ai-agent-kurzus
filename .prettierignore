@@ -5,7 +5,12 @@
 /.nx/workspace-data
 .nx/self-healing
 
+# harness / session
+.remember
+
 # generált / előre kész tartalom
 pnpm-lock.yaml
 /seed
 packages/db/generated
+# a seed adat verbatim másolata (a forrással bitre azonos)
+packages/db/prisma/plants.ts
