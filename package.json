@@ -7,6 +7,7 @@
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
+    "postinstall": "prisma generate --schema=packages/db/prisma/schema.prisma",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
