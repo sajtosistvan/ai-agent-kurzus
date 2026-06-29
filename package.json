@@ -1,0 +1,32 @@
+{
+  "name": "@plantbase/source",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "private": true,
+  "devDependencies": {
+    "@nx/eslint": "23.0.1",
+    "@nx/js": "23.0.1",
+    "@nx/vite": "23.0.1",
+    "@nx/web": "23.0.1",
+    "@swc-node/register": "1.11.1",
+    "@swc/core": "1.15.8",
+    "@swc/helpers": "0.5.18",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.8.0",
+    "jiti": "2.4.2",
+    "nx": "23.0.1",
+    "prettier": "^3.8.1",
+    "tslib": "^2.3.0",
+    "tsx": "^4.22.4",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.0"
+  }
+}
