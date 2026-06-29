@@ -5,6 +5,12 @@ import { join } from 'node:path';
 // Egy interakció = egy fájl; soronként egy esemény (request, response, később tool-lépések),
 // hogy a B3 tool-use loopja is bővíthető legyen.
 
+export interface ToolStepLog {
+  sql: string | null;
+  rowCount: number | null;
+  isError: boolean;
+}
+
 export interface InteractionLog {
   question: string;
   model: string;
@@ -13,6 +19,7 @@ export interface InteractionLog {
   answer: string;
   usage: { inputTokens: number; outputTokens: number };
   stopReason: string | null;
+  steps?: ToolStepLog[];
 }
 
 function timestampSlug(): string {
@@ -36,6 +43,12 @@ export function logInteraction(entry: InteractionLog): string {
       systemPrompt: entry.systemPrompt,
       messages: entry.messages,
     }),
+  ];
+  // A tool-lépések (generált SQL + sorszám) külön sorokban, ha voltak (B3).
+  for (const step of entry.steps ?? []) {
+    lines.push(JSON.stringify({ type: 'tool', at, ...step }));
+  }
+  lines.push(
     JSON.stringify({
       type: 'response',
       at,
@@ -43,7 +56,7 @@ export function logInteraction(entry: InteractionLog): string {
       usage: entry.usage,
       stopReason: entry.stopReason,
     }),
-  ];
+  );
 
   appendFileSync(file, lines.join('\n') + '\n', 'utf8');
   return file;

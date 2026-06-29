@@ -4,12 +4,14 @@ import {
   askAgent,
   loadConfig,
   ConfigError,
+  closeReadOnlyPool,
   type AskResult,
 } from '@plantbase/core';
 import { runInteractive } from './interactive.js';
 
-// B2 — LLM, adatbázis nélkül: a CLI az askAgent-be (sima Anthropic hívás) van kötve.
-// Az agent válaszol; a katalógus-adatra őszintén jelzi, hogy nincs DB-hozzáférése.
+// B3 — SQL-es interakció: a CLI az askAgent-be van kötve, ami a runSql toollal a read-only
+// katalógus felett dolgozik. Az agent SQL-t ír, lefuttatja, és magyar választ ad.
+// (B2 maradványa a kommentben: korábban LLM DB nélkül; most már van adatbázis-elérés.)
 // Még NINCS runSql/adatbázis (az a B3).
 //   plantbase ask "<kérdés>"          -> egyszeri válasz
 //   plantbase ask                     -> interaktív mód (exit-ig)
@@ -72,11 +74,16 @@ program
 
     const respond = makeResponder(options);
     const question = words.join(' ').trim();
-    if (question === '') {
-      await runInteractive(respond);
-      return;
+    try {
+      if (question === '') {
+        await runInteractive(respond);
+      } else {
+        console.log(await respond(question));
+      }
+    } finally {
+      // A read-only pg-pool életben tartja az event loopot — zárjuk, hogy tisztán kilépjünk.
+      await closeReadOnlyPool();
     }
-    console.log(await respond(question));
   });
 
 // Parancs nélkül: súgó (a beépített `help [command]` így is működik).

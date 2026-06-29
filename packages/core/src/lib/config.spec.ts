@@ -6,6 +6,8 @@ describe('loadConfig', () => {
   beforeEach(() => {
     resetConfigCache();
     process.env = { ...ORIGINAL };
+    process.env.DATABASE_URL_READONLY =
+      'postgresql://ro@localhost:5433/plantbase';
   });
 
   afterEach(() => {
