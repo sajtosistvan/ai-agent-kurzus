@@ -8,9 +8,17 @@
     "lint": "nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=packages/db/prisma/schema.prisma",
+    "db:reset": "prisma migrate reset --schema=packages/db/prisma/schema.prisma",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio --schema=packages/db/prisma/schema.prisma"
   },
   "private": true,
+  "prisma": {
+    "seed": "tsx packages/db/prisma/seed.ts"
+  },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
     "@nx/esbuild": "23.0.1",
@@ -33,6 +41,7 @@
     "jsonc-eslint-parser": "^2.1.0",
     "nx": "23.0.1",
     "prettier": "^3.8.1",
+    "prisma": "^6",
     "tslib": "^2.3.0",
     "tsx": "^4.22.4",
     "typescript": "~6.0.3",
@@ -40,5 +49,7 @@
     "vite": "^8.0.0",
     "vitest": "~4.1.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@prisma/client": "^6"
+  }
 }

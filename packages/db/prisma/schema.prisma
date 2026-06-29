@@ -1,0 +1,40 @@
+// Plantbase — Prisma séma (packages/db). A Prisma CSAK a sémát, migrációt és seedet viszi
+// a READ-WRITE kapcsolaton (DATABASE_URL). Az agent NEM Prismán kérdez: a runSql egy külön,
+// READ-ONLY kapcsolaton fut (architektura.md 2. pont). A kliens a libbe generálódik (6. pont).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// products katalógus — a mezők camelCase-ek, az oszlopok snake_case-ek (@map), a tábla "products"
+// (@@map). A séma forrása: stack.md / system-prompt.md.
+model Product {
+  id              Int      @id @default(autoincrement())
+  name            String
+  latinName       String   @map("latin_name")
+  category        String // szobanövény | kerti | pozsgás | kaktusz | fűszer | fa-cserje | lógó | virágzó
+  location        String // beltéri | kültéri | mindkettő
+  price           Decimal  @db.Decimal(12, 2) // ár (HUF)
+  salePrice       Decimal? @map("sale_price") @db.Decimal(12, 2) // akciós ár, null ha nincs akció
+  stock           Int // raktárkészlet (db)
+  light           String // árnyék | alacsony | közepes | erős | direkt nap
+  watering        String // ritka | közepes | gyakori | állandóan nedves
+  difficulty      String // kezdő | haladó | profi
+  currentHeightCm Int      @map("current_height_cm")
+  maxHeightCm     Int      @map("max_height_cm")
+  currentPotCm    Int      @map("current_pot_cm")
+  petSafe         Boolean  @map("pet_safe")
+  kidSafe         Boolean  @map("kid_safe")
+  airPurifying    Boolean  @map("air_purifying")
+  rating          Decimal  @db.Decimal(3, 2) // 0-5
+  reviewsCount    Int      @map("reviews_count")
+  description     String
+
+  @@map("products")
+}
