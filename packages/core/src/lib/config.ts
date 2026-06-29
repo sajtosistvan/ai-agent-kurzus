@@ -15,11 +15,14 @@ const ConfigSchema = z.object({
       message: 'a placeholder helyett valódi kulcs kell',
     }),
   ANTHROPIC_MODEL: z.string().min(1).default(DEFAULT_MODEL),
+  // Az agent runSql-je ezen a READ-ONLY kapcsolaton fut, csak SELECT (NFR1).
+  DATABASE_URL_READONLY: z.string().min(1),
 });
 
 export interface Config {
   apiKey: string;
   model: string;
+  databaseUrlReadonly: string;
 }
 
 let cached: Config | null = null;
@@ -47,6 +50,7 @@ export function loadConfig(): Config {
   cached = {
     apiKey: parsed.data.ANTHROPIC_API_KEY,
     model: parsed.data.ANTHROPIC_MODEL,
+    databaseUrlReadonly: parsed.data.DATABASE_URL_READONLY,
   };
   return cached;
 }
