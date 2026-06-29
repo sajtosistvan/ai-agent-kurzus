@@ -10,6 +10,8 @@
     "postinstall": "prisma generate --schema=packages/db/prisma/schema.prisma",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "cli:build": "nx build cli",
+    "cli": "nx build cli && node apps/cli/dist/main.js",
     "db:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=packages/db/prisma/schema.prisma",
     "db:reset": "prisma migrate reset --schema=packages/db/prisma/schema.prisma",
