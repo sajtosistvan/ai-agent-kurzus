@@ -1,10 +1,16 @@
 import { Command } from 'commander';
+import { echo } from '@plantbase/core';
+import { runInteractive } from './interactive.js';
 
-// A6 — üres CLI: a parancsváz elindul, --help/--version működik.
-// Még NINCS LLM és NINCS adatbázis. Az `ask` egyelőre placeholder:
-//   1. fázis (B1): echo,  2. fázis (B2): LLM,  3. fázis (B3): runSql.
+// B1 — CLI echo: a program visszaírja, amit beírtál. Még NINCS LLM és NINCS adatbázis.
+// A "válasz" forrása a core.echo; a B2-ben ezt váltja askAgent, a B3-ban a runSql-es agent.
+//   plantbase ask "<kérdés>"  -> egyszeri echo
+//   plantbase ask             -> interaktív readline mód (exit-ig)
 
 const program = new Command();
+
+// A bemenetből választ előállító függvény. B1: echo. (B2/B3: ezt cseréljük.)
+const respond = (input: string): string => echo(input);
 
 program
   .name('plantbase')
@@ -15,17 +21,15 @@ program
 
 program
   .command('ask')
-  .description('Kérdés a katalógusról (az interakció a B fázisokban épül).')
+  .description('Egyszeri kérdés, vagy argumentum nélkül interaktív mód.')
   .argument('[kérdés...]', 'a feltett kérdés (idézőjelben vagy szavanként)')
-  .action((words: string[]) => {
+  .action(async (words: string[]) => {
     const question = words.join(' ').trim();
-    console.log(
-      'plantbase: a parancsvázat látod — még nincs LLM és nincs adatbázis.',
-    );
-    console.log('A működés a B fázisokban épül: echo → LLM → runSql.');
-    if (question) {
-      console.log(`(beérkezett kérdés: "${question}")`);
+    if (question === '') {
+      await runInteractive(respond);
+      return;
     }
+    console.log(respond(question));
   });
 
 // Parancs nélkül: súgó (a beépített `help [command]` így is működik).
