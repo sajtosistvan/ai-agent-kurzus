@@ -123,9 +123,9 @@ export class Trace {
     // A kérdés erős, színes fejléce — szimmetrikusan a végső ✓ VÁLASZ blokkal. A vezető üres
     // sor a folyamatos watch-logban elválasztja az egymást követő futásokat.
     this.line('');
-    this.line(c.bold(c.magenta(heavyBar())));
-    this.line(c.bold(c.magenta('  ❓ KÉRDÉS:  ' + meta.question)));
-    this.line(c.bold(c.magenta(heavyBar())));
+    this.line(c.bold(c.cyan(heavyBar())));
+    this.line(c.bold(c.cyan('  KÉRDÉS:  ' + meta.question)));
+    this.line(c.bold(c.cyan(heavyBar())));
     this.line(c.dim(`  model: ${meta.model}`));
   }
 
