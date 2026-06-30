@@ -79,7 +79,6 @@ export async function askAgent(
   for (let i = 1; i <= MAX_TOOL_ITERATIONS; i++) {
     // 1) KÜLD: ez az EGY dolog, amit elküldünk — system + tools + a TELJES beszélgetés. Minden
     //    körben újra, egyre nagyobb `messages`-szel. (A trace kiírja, mit küldünk.)
-    trace.request(i, messages);
     const request = {
       model: config.model,
       max_tokens: MAX_TOKENS,
@@ -87,6 +86,7 @@ export async function askAgent(
       tools, // tools/index.ts → [runSqlTool]
       messages,
     };
+    trace.request(i, request); // kiírja a hívás MINDEN paraméterét
     const response = await anthropic.messages.create(request);
 
     inputTokens += response.usage.input_tokens;

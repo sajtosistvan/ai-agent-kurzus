@@ -116,17 +116,37 @@ export class Trace {
 
   /** HÍVÁS ELŐTT: kiírja a TELJES, lapított kontextust, amit elküldünk (system + a beszélgetés).
    *  Minden körben újra — így szemmel látszik, ahogy ugyanaz a szöveg nő. */
-  request(n: number, messages: Anthropic.MessageParam[]): void {
-    const grew = this.lastCount !== null && messages.length > this.lastCount;
-    this.lastCount = messages.length;
-    const label = `HÍVÁS #${n} · ${messages.length} üzenet${grew ? ' ← NŐTT' : ''}`;
+  request(
+    n: number,
+    req: {
+      model: string;
+      max_tokens: number;
+      system: string;
+      tools: Anthropic.Tool[];
+      messages: Anthropic.MessageParam[];
+    },
+  ): void {
+    const grew =
+      this.lastCount !== null && req.messages.length > this.lastCount;
+    this.lastCount = req.messages.length;
+    const label = `HÍVÁS #${n} · ${req.messages.length} üzenet${grew ? ' ← NŐTT' : ''}`;
     this.line('');
     this.line(grew ? c.bold(c.green(bar(label))) : c.bold(bar(label)));
-    this.line(c.dim('elküldjük az LLM-nek (a teljes kontextus):'));
-    this.line(c.dim(`  [system] ${clip(this.systemPrompt, 80)}`));
-    for (const m of messages) {
+    this.line(c.dim('amit átadunk a modellnek (a hívás paraméterei):'));
+    this.line(
+      c.dim('  model: ') +
+        c.white(req.model) +
+        c.dim(` · max_tokens: ${req.max_tokens}`),
+    );
+    this.line(
+      c.dim('  tools: ') +
+        c.white(`[${req.tools.map((t) => t.name).join(', ')}]`),
+    );
+    this.line(c.dim('  system: ') + clip(req.system, 70));
+    this.line(c.dim('  messages:'));
+    for (const m of req.messages) {
       for (const ln of renderMessage(m)) {
-        this.line('  ' + paint(ln));
+        this.line('    ' + paint(ln));
       }
     }
   }
@@ -155,13 +175,26 @@ export class Trace {
     this.turns.push(turn);
     this.line(
       c.dim(
-        `↳ a modell válasza · stop_reason: ${response.stop_reason} · ${response.usage.input_tokens} token elküldve`,
+        `↳ a modell válasza · stop_reason: ${response.stop_reason} · ${response.usage.input_tokens} token`,
       ),
     );
     // Köztes szöveg (a modell "gondolkodik" egy tool-hívás ELŐTT) — kiírjuk. A VÉGSŐ választ
     // viszont nem itt, hanem a finish() írja ki (✓ VÁLASZ), hogy ne duplikálódjon.
     if (modelText && response.stop_reason === 'tool_use') {
       this.line(c.white('  szöveg: ' + clip(modelText, 120)));
+    }
+    // A modell által generált tool-kérés(ek) — a paraméterekkel, amiket MAGA A MODELL írt.
+    for (const block of response.content) {
+      if (block.type === 'tool_use') {
+        const q =
+          (block.input as { query?: string } | null)?.query ??
+          JSON.stringify(block.input);
+        this.line(
+          c.yellow(`  tool-kérés: ${block.name}( `) +
+            c.cyan(clip(q, 90)) +
+            c.yellow(' )'),
+        );
+      }
     }
     return turn;
   }
@@ -194,9 +227,9 @@ export class Trace {
       ? flat(outcome.executedSql)
       : flat((call.input as { query?: string } | null)?.query ?? '');
     this.line('');
-    this.line(c.yellow(bar(`TOOL · ${call.name}`)));
+    this.line(c.yellow(bar(`TOOL · ${call.name} (lefuttatjuk a DB-n)`)));
     if (sql) {
-      this.line(c.dim('  SQL: ') + c.cyan(sql));
+      this.line(c.dim('  SQL (guard után): ') + c.cyan(sql));
     }
     if (outcome.isError) {
       this.line(c.red('  → hiba: ') + outcome.content);

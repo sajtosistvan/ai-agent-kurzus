@@ -28,7 +28,13 @@ describe('Trace', () => {
       print: false,
     });
 
-    t.request(1, [{ role: 'user', content: 'q' }]);
+    t.request(1, {
+      model: 'm',
+      max_tokens: 1024,
+      system: 's',
+      tools: [],
+      messages: [{ role: 'user', content: 'q' }],
+    });
     const turn1 = t.modelTurn(1, modelResponse('', 'tool_use'));
     t.toolStep(turn1, toolUse('SELECT 1'), {
       content: '{"rowCount":1,"rows":[{"x":1}]}',
@@ -37,11 +43,17 @@ describe('Trace', () => {
       rowCount: 1,
     });
 
-    t.request(2, [
-      { role: 'user', content: 'q' },
-      { role: 'assistant', content: [] },
-      { role: 'user', content: [] },
-    ]);
+    t.request(2, {
+      model: 'm',
+      max_tokens: 1024,
+      system: 's',
+      tools: [],
+      messages: [
+        { role: 'user', content: 'q' },
+        { role: 'assistant', content: [] },
+        { role: 'user', content: [] },
+      ],
+    });
     t.modelTurn(2, modelResponse('kész', 'end_turn'));
 
     const data = t.toJSON('kész', { inputTokens: 20, outputTokens: 10 });
@@ -74,7 +86,13 @@ describe('Trace', () => {
         print: false,
         watchLog: file,
       });
-      t.request(1, [{ role: 'user', content: 'q' }]);
+      t.request(1, {
+        model: 'm',
+        max_tokens: 1024,
+        system: 's',
+        tools: [],
+        messages: [{ role: 'user', content: 'q' }],
+      });
       const content = readFileSync(file, 'utf8');
       expect(content).toContain('HÍVÁS #1');
       expect(content).toContain('[user]');
