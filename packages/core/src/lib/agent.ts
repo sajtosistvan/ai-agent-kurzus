@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { loadConfig } from './config.js';
-import { buildSystemPromptWithDb } from './system-prompt.js';
+import { buildSystemPrompt } from './prompts.js';
 import { logInteraction, type ToolStepLog } from './logger.js';
 import { runSqlTool, executeRunSql } from './runsql-tool.js';
 
@@ -45,7 +45,7 @@ export async function askAgent(question: string): Promise<AskResult> {
   }
 
   const config = loadConfig();
-  const systemPrompt = buildSystemPromptWithDb();
+  const systemPrompt = buildSystemPrompt();
   const anthropic = getClient(config.apiKey);
   const messages: Anthropic.MessageParam[] = [
     { role: 'user', content: trimmed },
