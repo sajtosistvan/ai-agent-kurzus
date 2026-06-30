@@ -170,13 +170,16 @@ export class Trace {
       result,
     });
 
+    // A modell SQL-je gyakran többsoros — a konzolon egy sorba lapítjuk (a teljes,
+    // formázott SQL a JSON-nyomban marad).
+    const flat = (s: string): string => s.replace(/\s+/g, ' ').trim();
     const asked = (call.input as { query?: string } | null)?.query;
     this.line(c.yellow(`  ⚙ function call: ${call.name}`));
     if (asked) {
-      this.line(c.dim('    kért SQL:  ') + c.cyan(asked));
+      this.line(c.dim('    kért SQL:  ') + c.cyan(flat(asked)));
     }
-    if (outcome.executedSql && outcome.executedSql !== asked) {
-      this.line(c.dim('    guardolt:  ') + c.cyan(outcome.executedSql));
+    if (outcome.executedSql && flat(outcome.executedSql) !== flat(asked ?? '')) {
+      this.line(c.dim('    guardolt:  ') + c.cyan(flat(outcome.executedSql)));
     }
     if (outcome.isError) {
       this.line(c.red('    ✗ hiba: ') + outcome.content);
