@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { loadConfig } from './config.js';
 import { buildSystemPrompt } from './prompts.js';
 import { logInteraction, type ToolStepLog } from './logger.js';
-import { runSqlTool, executeRunSql } from './runsql-tool.js';
+import { runSqlTool, executeRunSql } from './tools/index.js';
 
 // B3 — askAgent: KÉZZEL ÍRT tool-use loop az Anthropic SDK messages.create fölött (nem helper,
 // nem agent-framework — architektura.md 3. pont). A modell SQL-t ír, a runSql toollal lefuttatja
