@@ -136,7 +136,9 @@ export class Trace {
         `  ↳ stop_reason: ${response.stop_reason} · elküldött kontextus: ${response.usage.input_tokens} token`,
       ),
     );
-    if (modelText) {
+    // Köztes szöveg (a modell "gondolkodik" egy tool-hívás ELŐTT) — kiírjuk. A VÉGSŐ választ
+    // viszont nem itt, hanem a finish() írja ki (✓ válasz), hogy ne duplikálódjon.
+    if (modelText && response.stop_reason === 'tool_use') {
       this.line(c.white('  ' + modelText));
     }
     if (response.stop_reason === 'tool_use') {
