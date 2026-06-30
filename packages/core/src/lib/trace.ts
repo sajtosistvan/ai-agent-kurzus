@@ -19,6 +19,7 @@ const c = {
   red: wrap(31),
   green: wrap(32),
   yellow: wrap(33),
+  magenta: wrap(35),
   cyan: wrap(36),
   white: wrap(37),
 };
@@ -101,7 +102,10 @@ export class Trace {
       mkdirSync(dirname(this.watchLog), { recursive: true });
       appendFileSync(this.watchLog, '\n' + '─'.repeat(64) + '\n', 'utf8');
     }
-    this.line(c.bold('▶ kérdés: ') + meta.question);
+    // A kérdés erős, színes fejléce — szimmetrikusan a végső ✓ VÁLASZ blokkal.
+    this.line(c.bold(c.magenta(heavyBar())));
+    this.line(c.bold(c.magenta('  ❓ KÉRDÉS:  ' + meta.question)));
+    this.line(c.bold(c.magenta(heavyBar())));
     this.line(c.dim(`  model: ${meta.model}`));
   }
 
