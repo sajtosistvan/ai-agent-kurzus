@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { loadConfig } from './config.js';
 import { buildSystemPrompt } from './prompts.js';
@@ -18,6 +19,8 @@ export interface AskOptions {
   history?: Message[];
   /** Élő, színes konzol-nyom. Alapból true; a CLI --quiet kapcsolóra false. */
   print?: boolean;
+  /** Folyamatos "control room" log a logs/agent.log-ba (külön terminálban `tail -f`). */
+  watchLog?: boolean;
 }
 
 export interface AskResult {
@@ -55,6 +58,9 @@ export async function askAgent(
     model: config.model,
     systemPrompt,
     print: options.print,
+    watchLog: options.watchLog
+      ? join(process.cwd(), 'logs', 'agent.log')
+      : undefined,
   });
 
   // A beszélgetés = egy üzenet-tömb, amit körről körre bővítünk (history + az új kérdés).

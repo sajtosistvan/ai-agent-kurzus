@@ -1,5 +1,5 @@
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { RunSqlOutcome } from './tools/index.js';
 
@@ -66,6 +66,7 @@ export class Trace {
   private readonly startedAt = Date.now();
   private readonly turns: Turn[] = [];
   private readonly print: boolean;
+  private readonly watchLog: string | null; // folyamatos "control room" log (tail -f)
   private lastCount: number | null = null; // az előző hívás üzenetszáma (a "NŐTT" jelzéshez)
   readonly question: string;
   readonly model: string;
@@ -76,11 +77,19 @@ export class Trace {
     model: string;
     systemPrompt: string;
     print?: boolean;
+    watchLog?: string;
   }) {
     this.question = meta.question;
     this.model = meta.model;
     this.systemPrompt = meta.systemPrompt;
     this.print = meta.print ?? true;
+    this.watchLog = meta.watchLog ?? null;
+    if (this.watchLog) {
+      // "control room": folyamatos log, külön terminálban `tail -f`-fel nézhető — a --quiet-től
+      // FÜGGETLENÜL ide kerül a teljes nyom. Append-only; a futások közé elválasztót teszünk.
+      mkdirSync(dirname(this.watchLog), { recursive: true });
+      appendFileSync(this.watchLog, '\n' + '─'.repeat(64) + '\n', 'utf8');
+    }
     this.line(c.bold('▶ kérdés: ') + meta.question);
     this.line(c.dim(`  model: ${meta.model}`));
   }
@@ -88,6 +97,9 @@ export class Trace {
   private line(s: string): void {
     if (this.print) {
       process.stdout.write(s + '\n');
+    }
+    if (this.watchLog) {
+      appendFileSync(this.watchLog, s + '\n', 'utf8');
     }
   }
 

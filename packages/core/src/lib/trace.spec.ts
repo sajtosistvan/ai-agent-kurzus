@@ -1,3 +1,6 @@
+import { readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import type Anthropic from '@anthropic-ai/sdk';
 import { Trace } from './trace.js';
 
@@ -59,5 +62,24 @@ describe('Trace', () => {
     expect(t.toJSON('a', { inputTokens: 1, outputTokens: 1 }).question).toBe(
       'q',
     );
+  });
+
+  it('appends the trace to the watch log even when print is false', () => {
+    const file = join(tmpdir(), `plantbase-watch-${process.pid}.log`);
+    try {
+      const t = new Trace({
+        question: 'q',
+        model: 'm',
+        systemPrompt: 's',
+        print: false,
+        watchLog: file,
+      });
+      t.request(1, [{ role: 'user', content: 'q' }]);
+      const content = readFileSync(file, 'utf8');
+      expect(content).toContain('🔁 1. hívás');
+      expect(content).toContain('[user]');
+    } finally {
+      rmSync(file, { force: true });
+    }
   });
 });

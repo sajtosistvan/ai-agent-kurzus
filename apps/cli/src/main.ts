@@ -51,7 +51,10 @@ program
       if (question === '') {
         await runInteractive(options.quiet);
       } else {
-        const result = await askAgent(question, { print: !options.quiet });
+        const result = await askAgent(question, {
+          print: !options.quiet,
+          watchLog: true,
+        });
         // Csendes módban a trace nem ír semmit → a választ itt írjuk ki.
         if (options.quiet) {
           console.log(result.answer);
