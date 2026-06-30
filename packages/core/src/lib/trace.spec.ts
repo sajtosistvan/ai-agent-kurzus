@@ -76,7 +76,7 @@ describe('Trace', () => {
       });
       t.request(1, [{ role: 'user', content: 'q' }]);
       const content = readFileSync(file, 'utf8');
-      expect(content).toContain('🔁 1. hívás');
+      expect(content).toContain('HÍVÁS #1');
       expect(content).toContain('[user]');
     } finally {
       rmSync(file, { force: true });

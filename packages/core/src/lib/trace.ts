@@ -29,6 +29,17 @@ function clip(s: string, n: number): string {
   return flat.length > n ? flat.slice(0, n) + '…' : flat;
 }
 
+const BAR_WIDTH = 58;
+/** Címkézett vékony elválasztó egy lineáris lépéshez: ── CÍMKE ───────── */
+function bar(label: string): string {
+  const head = `── ${label} `;
+  return head + '─'.repeat(Math.max(0, BAR_WIDTH - head.length));
+}
+/** Vastag elválasztó a végső válasz kiemeléséhez. */
+function heavyBar(): string {
+  return '═'.repeat(BAR_WIDTH);
+}
+
 export interface ToolCall {
   name: string;
   input: unknown;
@@ -108,12 +119,11 @@ export class Trace {
   request(n: number, messages: Anthropic.MessageParam[]): void {
     const grew = this.lastCount !== null && messages.length > this.lastCount;
     this.lastCount = messages.length;
-    this.line(
-      c.bold(`\n🔁 ${n}. hívás — EZT küldjük (${messages.length} üzenet)`) +
-        (grew ? c.green(' ← NŐTT') : '') +
-        c.dim(':'),
-    );
-    this.line(c.dim(`  [system] ${clip(this.systemPrompt, 70)}`));
+    const label = `HÍVÁS #${n} · ${messages.length} üzenet${grew ? ' ← NŐTT' : ''}`;
+    this.line('');
+    this.line(grew ? c.bold(c.green(bar(label))) : c.bold(bar(label)));
+    this.line(c.dim('elküldjük az LLM-nek (a teljes kontextus):'));
+    this.line(c.dim(`  [system] ${clip(this.systemPrompt, 80)}`));
     for (const m of messages) {
       for (const ln of renderMessage(m)) {
         this.line('  ' + paint(ln));
@@ -145,20 +155,13 @@ export class Trace {
     this.turns.push(turn);
     this.line(
       c.dim(
-        `  ↳ stop_reason: ${response.stop_reason} · elküldött kontextus: ${response.usage.input_tokens} token`,
+        `↳ a modell válasza · stop_reason: ${response.stop_reason} · ${response.usage.input_tokens} token elküldve`,
       ),
     );
     // Köztes szöveg (a modell "gondolkodik" egy tool-hívás ELŐTT) — kiírjuk. A VÉGSŐ választ
-    // viszont nem itt, hanem a finish() írja ki (✓ válasz), hogy ne duplikálódjon.
+    // viszont nem itt, hanem a finish() írja ki (✓ VÁLASZ), hogy ne duplikálódjon.
     if (modelText && response.stop_reason === 'tool_use') {
-      this.line(c.white('  ' + modelText));
-    }
-    if (response.stop_reason === 'tool_use') {
-      this.line(
-        c.dim(
-          '  ↳ a tool-eredményt hozzáfűzzük, és a loop tetején újra elküldjük az EGÉSZET',
-        ),
-      );
+      this.line(c.white('  szöveg: ' + clip(modelText, 120)));
     }
     return turn;
   }
@@ -187,21 +190,21 @@ export class Trace {
     // A modell SQL-je gyakran többsoros — a konzolon egy sorba lapítjuk (a teljes,
     // formázott SQL a JSON-nyomban marad).
     const flat = (s: string): string => s.replace(/\s+/g, ' ').trim();
-    const asked = (call.input as { query?: string } | null)?.query;
-    this.line(c.yellow(`  ⚙ function call: ${call.name}`));
-    if (asked) {
-      this.line(c.dim('    kért SQL:  ') + c.cyan(flat(asked)));
-    }
-    if (
-      outcome.executedSql &&
-      flat(outcome.executedSql) !== flat(asked ?? '')
-    ) {
-      this.line(c.dim('    guardolt:  ') + c.cyan(flat(outcome.executedSql)));
+    const sql = outcome.executedSql
+      ? flat(outcome.executedSql)
+      : flat((call.input as { query?: string } | null)?.query ?? '');
+    this.line('');
+    this.line(c.yellow(bar(`TOOL · ${call.name}`)));
+    if (sql) {
+      this.line(c.dim('  SQL: ') + c.cyan(sql));
     }
     if (outcome.isError) {
-      this.line(c.red('    ✗ hiba: ') + outcome.content);
+      this.line(c.red('  → hiba: ') + outcome.content);
     } else {
-      this.line(c.green(`    ✓ ${outcome.rowCount ?? 0} sor`));
+      this.line(
+        c.green(`  → ${outcome.rowCount ?? 0} sor`) +
+          c.dim(' · hozzáfűzve a kontextushoz'),
+      );
     }
   }
 
@@ -210,7 +213,10 @@ export class Trace {
     answer: string,
     usage: { inputTokens: number; outputTokens: number },
   ): string {
-    this.line(c.bold('\n✓ válasz:'));
+    this.line('');
+    this.line(c.bold(c.green(heavyBar())));
+    this.line(c.bold(c.green('  ✓ VÁLASZ')));
+    this.line(c.bold(c.green(heavyBar())));
     this.line(c.white(answer));
 
     const data = this.toJSON(answer, usage);
@@ -218,7 +224,8 @@ export class Trace {
     mkdirSync(dir, { recursive: true });
     const path = join(dir, `${timestampSlug()}.json`);
     writeFileSync(path, JSON.stringify(data, null, 2) + '\n', 'utf8');
-    this.line(c.dim(`  nyom: ${path}`));
+    this.line('');
+    this.line(c.dim(`nyom: ${path}`));
     return path;
   }
 
