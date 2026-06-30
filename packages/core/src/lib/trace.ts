@@ -178,7 +178,10 @@ export class Trace {
     if (asked) {
       this.line(c.dim('    kért SQL:  ') + c.cyan(flat(asked)));
     }
-    if (outcome.executedSql && flat(outcome.executedSql) !== flat(asked ?? '')) {
+    if (
+      outcome.executedSql &&
+      flat(outcome.executedSql) !== flat(asked ?? '')
+    ) {
       this.line(c.dim('    guardolt:  ') + c.cyan(flat(outcome.executedSql)));
     }
     if (outcome.isError) {
