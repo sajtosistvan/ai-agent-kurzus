@@ -2,7 +2,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type Anthropic from '@anthropic-ai/sdk';
-import { Trace } from './trace.js';
+import { Trace, setWatchLog, traceLog } from './trace.js';
 
 const modelResponse = (text: string, stop: string): Anthropic.Message =>
   ({
@@ -79,12 +79,12 @@ describe('Trace', () => {
   it('appends the trace to the watch log even when print is false', () => {
     const file = join(tmpdir(), `plantbase-watch-${process.pid}.log`);
     try {
+      setWatchLog(file);
       const t = new Trace({
         question: 'q',
         model: 'm',
         systemPrompt: 's',
         print: false,
-        watchLog: file,
       });
       t.request(1, {
         model: 'm',
@@ -97,6 +97,19 @@ describe('Trace', () => {
       expect(content).toContain('HÍVÁS #1');
       expect(content).toContain('[user]');
     } finally {
+      setWatchLog(null);
+      rmSync(file, { force: true });
+    }
+  });
+
+  it('traceLog writes a custom line to the watch log', () => {
+    const file = join(tmpdir(), `plantbase-tracelog-${process.pid}.log`);
+    try {
+      setWatchLog(file);
+      traceLog('saját log üzenet');
+      expect(readFileSync(file, 'utf8')).toContain('saját log üzenet');
+    } finally {
+      setWatchLog(null);
       rmSync(file, { force: true });
     }
   });

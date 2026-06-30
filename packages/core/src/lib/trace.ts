@@ -41,6 +41,33 @@ function heavyBar(): string {
   return '═'.repeat(BAR_WIDTH);
 }
 
+// ── Watch-log ("control room"): folyamatos, `tail -f`-elhető log az EGÉSZ folyamatról. ──
+// Modul-szintű cél, hogy a Trace ÉS a saját `traceLog` is ugyanabba a fájlba írjon. A CLI
+// egyszer beállítja; tesztben/máshol kikapcsolva (null) marad.
+let watchLogPath: string | null = null;
+
+/** A watch-log célfájljának beállítása (a CLI egyszer hívja). null = kikapcsolva. */
+export function setWatchLog(path: string | null): void {
+  watchLogPath = path;
+  if (path) {
+    mkdirSync(dirname(path), { recursive: true });
+  }
+}
+
+function appendWatch(s: string): void {
+  if (watchLogPath) {
+    appendFileSync(watchLogPath, s + '\n', 'utf8');
+  }
+}
+
+/** Saját log-sor a konzolba ÉS a watch-logba — bárhonnan hívható a kódból. A nyers
+ *  console.log-gal szemben ez a `tail -f` control roomban is megjelenik. */
+export function traceLog(text: string): void {
+  const line = c.magenta('● ') + c.white(text);
+  process.stdout.write(line + '\n');
+  appendWatch(line);
+}
+
 export interface ToolCall {
   name: string;
   input: unknown;
@@ -78,7 +105,6 @@ export class Trace {
   private readonly startedAt = Date.now();
   private readonly turns: Turn[] = [];
   private readonly print: boolean;
-  private readonly watchLog: string | null; // folyamatos "control room" log (tail -f)
   private lastCount: number | null = null; // az előző hívás üzenetszáma (a "NŐTT" jelzéshez)
   readonly question: string;
   readonly model: string;
@@ -89,20 +115,14 @@ export class Trace {
     model: string;
     systemPrompt: string;
     print?: boolean;
-    watchLog?: string;
   }) {
     this.question = meta.question;
     this.model = meta.model;
     this.systemPrompt = meta.systemPrompt;
     this.print = meta.print ?? true;
-    this.watchLog = meta.watchLog ?? null;
-    if (this.watchLog) {
-      // "control room": folyamatos log, külön terminálban `tail -f`-fel nézhető — a --quiet-től
-      // FÜGGETLENÜL ide kerül a teljes nyom. Append-only; a futások közé elválasztót teszünk.
-      mkdirSync(dirname(this.watchLog), { recursive: true });
-      appendFileSync(this.watchLog, '\n' + '─'.repeat(64) + '\n', 'utf8');
-    }
-    // A kérdés erős, színes fejléce — szimmetrikusan a végső ✓ VÁLASZ blokkal.
+    // A kérdés erős, színes fejléce — szimmetrikusan a végső ✓ VÁLASZ blokkal. A vezető üres
+    // sor a folyamatos watch-logban elválasztja az egymást követő futásokat.
+    this.line('');
     this.line(c.bold(c.magenta(heavyBar())));
     this.line(c.bold(c.magenta('  ❓ KÉRDÉS:  ' + meta.question)));
     this.line(c.bold(c.magenta(heavyBar())));
@@ -113,9 +133,7 @@ export class Trace {
     if (this.print) {
       process.stdout.write(s + '\n');
     }
-    if (this.watchLog) {
-      appendFileSync(this.watchLog, s + '\n', 'utf8');
-    }
+    appendWatch(s);
   }
 
   /** HÍVÁS ELŐTT: kiírja a TELJES, lapított kontextust, amit elküldünk (system + a beszélgetés).

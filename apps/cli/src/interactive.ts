@@ -27,11 +27,7 @@ export function runInteractive(quiet: boolean): Promise<void> {
         break;
       }
       try {
-        const result = await askAgent(input, {
-          history,
-          print: !quiet,
-          watchLog: true,
-        });
+        const result = await askAgent(input, { history, print: !quiet });
         history = result.messages; // ← továbbvisszük az előzményt a következő körre
         if (quiet) {
           stdout.write(`${result.answer}\n`);
