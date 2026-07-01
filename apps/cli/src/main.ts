@@ -1,47 +1,23 @@
 import 'dotenv/config';
+import { join } from 'node:path';
 import { Command } from 'commander';
 import {
   askAgent,
   loadConfig,
   ConfigError,
   closeReadOnlyPool,
-  type AskResult,
+  setWatchLog,
 } from '@plantbase/core';
 import { runInteractive } from './interactive.js';
 
-// B3 — SQL-es interakció: a CLI az askAgent-be van kötve, ami a runSql toollal a read-only
-// katalógus felett dolgozik. Az agent SQL-t ír, lefuttatja, és magyar választ ad.
-// (B2 maradványa a kommentben: korábban LLM DB nélkül; most már van adatbázis-elérés.)
-// Még NINCS runSql/adatbázis (az a B3).
-//   plantbase ask "<kérdés>"          -> egyszeri válasz
-//   plantbase ask                     -> interaktív mód (exit-ig)
-//   plantbase ask --show-prompt ...   -> a teljes system prompt + üzenetek kiírása
+// plantbase ask "<kérdés>"   -> egyszeri válasz (élő színes trace + logs/<ts>.json)
+// plantbase ask              -> interaktív mód (beszélgetés-memóriával, exit-ig)
+// plantbase ask --quiet ...  -> nincs élő trace (csak a válasz), a JSON nyom akkor is elkészül
 
 const program = new Command();
 
 interface AskOptions {
-  showPrompt: boolean;
-}
-
-function printPrompt(result: AskResult): void {
-  console.log('----- system prompt -----');
-  console.log(result.systemPrompt);
-  console.log('----- üzenetek (messages) -----');
-  console.log(JSON.stringify(result.messages, null, 2));
-  console.log('----- válasz -----');
-}
-
-// A bemenetből választ előállító függvény (egyszeri és interaktív módban is ezt használjuk).
-function makeResponder(
-  options: AskOptions,
-): (input: string) => Promise<string> {
-  return async (input: string): Promise<string> => {
-    const result = await askAgent(input);
-    if (options.showPrompt) {
-      printPrompt(result);
-    }
-    return result.answer;
-  };
+  quiet: boolean;
 }
 
 program
@@ -56,8 +32,8 @@ program
   .description('Egyszeri kérdés, vagy argumentum nélkül interaktív mód.')
   .argument('[kérdés...]', 'a feltett kérdés (idézőjelben vagy szavanként)')
   .option(
-    '--show-prompt',
-    'a teljes system prompt és üzenet-tömb kiírása',
+    '--quiet',
+    'ne írja ki az élő trace-t (a JSON nyom akkor is elkészül)',
     false,
   )
   .action(async (words: string[], options: AskOptions) => {
@@ -72,13 +48,19 @@ program
       throw error;
     }
 
-    const respond = makeResponder(options);
+    // A folyamatos "control room" log bekapcsolása: külön terminálban `tail -f logs/agent.log`.
+    setWatchLog(join(process.cwd(), 'logs', 'agent.log'));
+
     const question = words.join(' ').trim();
     try {
       if (question === '') {
-        await runInteractive(respond);
+        await runInteractive(options.quiet);
       } else {
-        console.log(await respond(question));
+        const result = await askAgent(question, { print: !options.quiet });
+        // Csendes módban a trace nem ír semmit → a választ itt írjuk ki.
+        if (options.quiet) {
+          console.log(result.answer);
+        }
       }
     } finally {
       // A read-only pg-pool életben tartja az event loopot — zárjuk, hogy tisztán kilépjünk.
@@ -86,7 +68,7 @@ program
     }
   });
 
-// Parancs nélkül: súgó (a beépített `help [command]` így is működik).
+// Parancs nélkül: súgó.
 if (process.argv.length <= 2) {
   program.outputHelp();
   process.exit(0);

@@ -22,7 +22,8 @@ felhasználó kérdése
                           │  4. SELECT-guard + READ-ONLY kapcsolat ──► Postgres (products)
                           │  5. sorok ──► a modell magyar választ ad
                           ▼
-                 természetes nyelvű válasz  +  logs/<timestamp>.jsonl
+            természetes nyelvű válasz  +  élő színes trace
+                          +  logs/<timestamp>.json  +  logs/agent.log
 ```
 
 A `packages/core` **framework-agnostic**: nem ismeri a belépési pontot (CLI/API/web). Az `askAgent` az Anthropic SDK fölé épülő, **kézzel írt, többlépéses tool-use loop** — szándékosan nincs agent-framework, hogy a mechanika látható maradjon.
@@ -63,8 +64,8 @@ A Prisma (séma, migráció, seed) ezzel szemben a **READ-WRITE** kapcsolatot ha
 │   └── cli/            # plantbase CLI: ask parancs + interaktív mód
 ├── packages/
 │   ├── core/           # agent-logika (framework-agnostic)
-│   │   └── src/lib/    # agent, config, system-prompt, sql-guard,
-│   │                   # db-readonly, runsql-tool, logger, echo
+│   │   └── src/lib/    # agent (tool-use loop), config, prompts, trace, echo
+│   │       └── tools/  # run-sql tool, sql-guard, db-readonly, dispatch
 │   └── db/             # Prisma lib: séma, migráció, generált kliens, seed
 ├── docs/               # BRS, architektúra, stack, konvenciók, system-prompt, terv
 ├── docker-compose.yml  # Postgres + read-only role (initdb)
@@ -108,14 +109,18 @@ pnpm cli ask "mutass 3 pet-safe, alacsony fényigényű növényt raktáron, 500
 # Interaktív mód (több kérdés, 'exit'-ig)
 pnpm cli ask
 
-# A teljes system prompt + üzenet-tömb kiírása (átláthatóság)
-pnpm cli ask --show-prompt "milyen pozsgásokat ajánlasz?"
+# Csendes mód: csak a végső válasz, élő trace nélkül (a JSON nyom akkor is elkészül)
+pnpm cli ask --quiet "milyen pozsgásokat ajánlasz?"
 
 # Súgó
 pnpm cli --help
 ```
 
-Minden interakció naplózva: `logs/<timestamp>.jsonl` (system prompt, üzenetek, **generált SQL**, eredmény, válasz, token-felhasználás).
+Minden interakció **kétféleképpen átlátható**:
+
+- **Élő színes trace** a konzolon — lépésről lépésre látszik a teljes mechanika: a kérés paraméterei (model, max_tokens, tools, system, messages), a modell generálta SQL, a tool-eredmény és a végső válasz. (`--quiet`-tel kikapcsolható.)
+- **Pretty JSON nyom** minden futásról: `logs/<timestamp>.json` (system prompt, üzenetek, **generált SQL**, eredmény, válasz, token-felhasználás).
+- **Folyamatos „control room" log** a `logs/agent.log`-ban — külön terminálban `tail -f logs/agent.log`-gal követhető, a `--quiet`-tól függetlenül.
 
 A modell `.env`-ből állítható (`ANTHROPIC_MODEL`); költségérzékeny demóhoz pl. `claude-haiku-4-5`.
 
@@ -123,16 +128,16 @@ A modell `.env`-ből állítható (`ANTHROPIC_MODEL`); költségérzékeny demó
 
 ## Hasznos scriptek
 
-| Script                    | Mit csinál                                      |
-| ------------------------- | ----------------------------------------------- |
-| `pnpm cli ask "…"`        | CLI buildelése + futtatása                      |
-| `pnpm db:migrate`         | Prisma migráció (dev)                           |
-| `pnpm db:seed`            | Seed betöltése (idempotens)                     |
-| `pnpm db:studio`          | Prisma Studio                                   |
-| `pnpm build`              | minden projekt buildje (`nx run-many -t build`) |
-| `pnpm test`               | Vitest (unit tesztek)                           |
-| `pnpm lint` / `typecheck` | ESLint / `tsc`                                  |
-| `pnpm format`             | Prettier                                        |
+| Script                    | Mit csinál                                       |
+| ------------------------- | ------------------------------------------------ |
+| `pnpm cli ask "…"`        | CLI futtatása tsx-szel (nincs build futásonként) |
+| `pnpm db:migrate`         | Prisma migráció (dev)                            |
+| `pnpm db:seed`            | Seed betöltése (idempotens)                      |
+| `pnpm db:studio`          | Prisma Studio                                    |
+| `pnpm build`              | minden projekt buildje (`nx run-many -t build`)  |
+| `pnpm test`               | Vitest (unit tesztek)                            |
+| `pnpm lint` / `typecheck` | ESLint / `tsc`                                   |
+| `pnpm format`             | Prettier                                         |
 
 ---
 
@@ -153,6 +158,7 @@ A részletek a [`docs/`](docs/) mappában:
 - [`brs-plantbase.md`](docs/brs-plantbase.md) — üzleti követelmények (BRS), ROI, scope
 - [`architektura.md`](docs/architektura.md) — fájlstruktúra és kulcsdöntések
 - [`stack.md`](docs/stack.md) — tech stack és a `products` séma
+- [`setup-instructions.md`](docs/setup-instructions.md) — lépésről lépésre környezet-felállítás
 - [`konvenciok.md`](docs/konvenciok.md) — kódkonvenciók, prompt-stílus
 - [`system-prompt.md`](docs/system-prompt.md) — a termék-agent system promptja
 - [`dev-workflow.md`](docs/dev-workflow.md) — git, hookok, dokumentáció

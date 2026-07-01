@@ -1,22 +1,19 @@
 import { createInterface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
+import { askAgent, type Message } from '@plantbase/core';
 
-// Interaktív readline-hurok: minden beírt sorra meghívja a `respond` handlert,
-// kiírja a választ, és az `exit`/`quit` szóra (vagy Ctrl-D / Ctrl-C) kilép.
-//
-// A sorokat egy egyszerű sorba (queue) gyűjtjük, és SOROSAN dolgozzuk fel
-// (egyszerre egy respond fut). Így csővezetett (nem TTY) bemenetnél sem veszik el
-// sor, és a B2/B3 async LLM-hívásai sem futnak egymásra. A handler ezért async lehet.
+// Interaktív readline-hurok BESZÉLGETÉS-MEMÓRIÁVAL: a teljes üzenet-tömböt körről körre
+// továbbvisszük, így a követő kérdés ismeri az előzményt. A sorokat sorosan dolgozzuk fel
+// (egyszerre egy askAgent fut), így csővezetett bemenetnél sem fut össze két hívás.
 
 const EXIT_WORDS = new Set(['exit', 'quit', 'kilép']);
 
-export function runInteractive(
-  respond: (input: string) => string | Promise<string>,
-): Promise<void> {
+export function runInteractive(quiet: boolean): Promise<void> {
   const rl = createInterface({ input: stdin, output: stdout, prompt: '> ' });
   const queue: string[] = [];
   let processing = false;
   let closed = false;
+  let history: Message[] = []; // ← a beszélgetés memóriája
 
   async function drain(): Promise<void> {
     if (processing) {
@@ -25,14 +22,16 @@ export function runInteractive(
     processing = true;
     while (queue.length > 0 && !closed) {
       const input = queue.shift() as string;
-      // Az exit a sorban, sorrendhelyesen érvényesül (a korábbi sorok még lefutnak).
       if (EXIT_WORDS.has(input.toLowerCase())) {
         rl.close();
         break;
       }
       try {
-        const answer = await respond(input);
-        stdout.write(`${answer}\n`);
+        const result = await askAgent(input, { history, print: !quiet });
+        history = result.messages; // ← továbbvisszük az előzményt a következő körre
+        if (quiet) {
+          stdout.write(`${result.answer}\n`);
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         stdout.write(`hiba: ${message}\n`);
