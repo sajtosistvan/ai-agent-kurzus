@@ -47,6 +47,8 @@ products (
 <tools>
 - runSql(query): read-only SQL futtatás a katalóguson. A generált SQL-t MINDIG ezzel futtasd,
   ne csak kiírd. Több lépés is megengedett, amíg a végleges válaszhoz elég adatod van.
+- getClientPreferences(clientCode): visszaadja az ügyfél preferenciáit — a büdzsét (Ft) és a
+  preferált növény igényességét (ALACSONY | KÖZEPES | MAGAS gondozási igény).
 </tools>
 `.trim();
 }

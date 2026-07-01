@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { loadConfig } from './config.js';
 import { buildSystemPrompt } from './prompts.js';
 import { tools, executeTool } from './tools/index.js';
-import { Trace } from './trace.js';
+import { Trace, traceLog } from './trace.js';
 
 // agent.ts — a KÉZZEL ÍRT tool-use loop az Anthropic SDK messages.create fölött (nem helper,
 // nem framework). Itt látszik az egész mechanika: prompt → hívás → stop_reason → function call
@@ -43,6 +43,7 @@ export async function askAgent(
   options: AskOptions = {},
 ): Promise<AskResult> {
   const trimmed = question.trim();
+  //traceLog(`Induljunk...`);
   if (trimmed === '') {
     throw new Error('Üres kérdést nem lehet feltenni.');
   }
@@ -88,12 +89,15 @@ export async function askAgent(
     stopReason = response.stop_reason;
     const turn = trace.modelTurn(i, response);
 
+    traceLog('Induljunk...');
+
     // 2) HOZZÁFŰZ: a modell fordulóját (szöveg + esetleges tool_use blokkok) a kontextushoz.
     messages.push({ role: 'assistant', content: response.content });
 
     // Nincs több tool-kérés → ez a végső válasz, kilépünk a loopból.
     if (response.stop_reason !== 'tool_use') {
       answer = turn.modelText;
+      //traceLog(`Kilépek...`);
       break;
     }
 

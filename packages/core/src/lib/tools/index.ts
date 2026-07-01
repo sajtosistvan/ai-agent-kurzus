@@ -1,5 +1,9 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { runSqlTool, executeRunSql, type RunSqlOutcome } from './run-sql.js';
+import {
+  getClientPreferencesTool,
+  executeGetClientPreferences,
+} from './client-preferences.js';
 
 // A modell-felé eső tool-felület: MILYEN toolok vannak, és hogyan futtatjuk őket.
 // Új tool hozzáadása = új fájl ebben a mappában + felvétel a `tools` tömbbe és az
@@ -7,6 +11,16 @@ import { runSqlTool, executeRunSql, type RunSqlOutcome } from './run-sql.js';
 
 export { runSqlTool, executeRunSql } from './run-sql.js';
 export type { RunSqlOutcome } from './run-sql.js';
+export {
+  getClientPreferencesTool,
+  executeGetClientPreferences,
+  CLIENT_PREFERENCES,
+  CLIENT_CODES,
+  CARE_LEVELS,
+  type ClientCode,
+  type CareLevel,
+  type ClientPreference,
+} from './client-preferences.js';
 export { ensureReadOnlySelect, SqlGuardError } from './sql-guard.js';
 export {
   runReadOnlyQuery,
@@ -14,7 +28,7 @@ export {
   type SqlResult,
 } from './db-readonly.js';
 
-export const tools: Anthropic.Tool[] = [runSqlTool];
+export const tools: Anthropic.Tool[] = [runSqlTool, getClientPreferencesTool];
 
 /**
  * A modell egy toolt kért (name + input) → lefuttatjuk. Ismeretlen toolra hibát
@@ -26,6 +40,9 @@ export async function executeTool(
 ): Promise<RunSqlOutcome> {
   if (name === runSqlTool.name) {
     return executeRunSql(input);
+  }
+  if (name === getClientPreferencesTool.name) {
+    return executeGetClientPreferences(input);
   }
   return {
     content: `Ismeretlen tool: ${name}`,
