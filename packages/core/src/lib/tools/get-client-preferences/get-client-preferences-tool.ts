@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import type { ToolOutcome, ToolReporter } from './tool-outcome.js';
+import type { ToolOutcome, ToolReporter } from '../tool-outcome.js';
 
 // getClientPreferences tool — ügyfélkód alapján adja vissza az ügyfél preferenciáit:
 // a büdzsét (Ft) és a preferált növény-IGÉNYESSÉGET (gondozási igény).

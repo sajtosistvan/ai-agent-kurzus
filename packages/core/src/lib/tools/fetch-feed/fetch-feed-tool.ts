@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import type { ToolOutcome, ToolReporter } from './tool-outcome.js';
+import type { ToolOutcome, ToolReporter } from '../tool-outcome.js';
 import { fetchFeedCandidates, type FeedDomain } from './shopify-feed.js';
 
 // fetchFeed tool — az INGEST-agent ezzel olvassa be ÉLŐBEN a webshop-feedet (Shopify

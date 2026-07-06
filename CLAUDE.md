@@ -48,14 +48,27 @@ Nx monorepo, three projects: **`apps/cli`** (`@plantbase/cli`, commander + readl
 
 ### Two agents, one loop (`packages/core/src/lib/agents/`)
 
-**One agent = prompt + tools + loop.** The shared loop lives in **`agents/agent-loop.ts`** (`runAgentLoop`): Vercel AI SDK 6 `generateText` + `stopWhen: stepCountIs(n)`, with the transparent per-step trace wired via `prepareStep`/`onStepFinish` (see `trace.ts`; live console + `logs/<ts>.json` + `logs/agent.log`). The loop was originally hand-written over the raw Anthropic SDK; the SDK now runs the same prompt→tool-call→tool-result→repeat cycle. Each agent file is a thin definition (~40 lines): its prompt, its toolset, its limits.
+**One agent = prompt + tools + loop; every agent gets its own directory, shared code sits one level up.** The shared loop lives in **`agents/agent-loop.ts`** (`runAgentLoop`): Vercel AI SDK 6 `generateText` + `stopWhen: stepCountIs(n)`, with the transparent per-step trace wired via `prepareStep`/`onStepFinish` (see `trace.ts`; live console + `logs/<ts>.json` + `logs/agent.log`). The loop was originally hand-written over the raw Anthropic SDK; the SDK now runs the same prompt→tool-call→tool-result→repeat cycle. Each agent file is a thin definition (~40 lines): its prompt, its toolset, its limits.
 
-- **Query agent** — `askAgent` (`agents/query-agent.ts`), prompt `buildQueryPrompt` (`agents/query-prompt.ts`). NL → SQL → read-only `runSql` → Hungarian answer. Tools: `runSql`, `getClientPreferences`.
-- **Ingest agent** — `askIngestAgent` (`agents/ingest-agent.ts`), prompt `buildIngestPrompt` (`agents/ingest-prompt.ts`). Conversationally edits the catalog. Tools: `fetchFeed` (live Shopify `products.json` from tropicalhome.hu / thesill.com), `runSql` (read current state), `upsertProduct` (the **only** in-app write path).
+- **Query agent** — `askAgent` (`agents/query-agent/query-agent.ts`), prompt `buildQueryPrompt` (`agents/query-agent/query-prompt.ts`). NL → SQL → read-only `runSql` → Hungarian answer. Tools: `runSql`, `getClientPreferences`.
+- **Ingest agent** — `askIngestAgent` (`agents/ingest-agent/ingest-agent.ts`), prompt `buildIngestPrompt` (`agents/ingest-agent/ingest-prompt.ts`). Conversationally edits the catalog. Tools: `fetchFeed` (live Shopify `products.json` from tropicalhome.hu / thesill.com), `runSql` (read current state), `upsertProduct` (the **only** in-app write path).
 
 ### Tool layer (`packages/core/src/lib/tools/`)
 
-**One tool = one file**, containing everything: the model-facing description, the permissive AI SDK `tool()` schema (type + describe), the **strict boundary validation** (Zod) in the `execute*` function, and the `<name>Tool(report)` factory. `execute*` functions **never throw** — they return a `ToolOutcome` (`content` string, `isError`, `summary`, `rowCount`; see `tool-outcome.ts`), so even bad LLM input comes back as our own Hungarian error text, not an SDK exception. The `report` callback is the side-channel that feeds the full outcome to the `Trace` (the model only sees `content`). **Adding a tool = one new file + one line in the agent's toolset** (`buildTools` in the agent file). Supporting non-tool modules are named by function: `sql-guard.ts`, `db-readonly.ts`, `db-readwrite.ts`, `shopify-feed.ts` (the feed client behind `fetch-feed.ts`), `product-schema.ts`.
+**One tool = one directory with everything it needs**; the shared `ToolOutcome` sits one level up (`tools/tool-outcome.ts`).
+
+```
+tools/
+├── tool-outcome.ts              # shared result shape (content, isError, summary, rowCount)
+├── run-sql/                     # run-sql-tool.ts + sql-guard.ts + db-readonly.ts (+ specs)
+├── get-client-preferences/      # get-client-preferences-tool.ts (+ spec)
+├── fetch-feed/                  # fetch-feed-tool.ts + shopify-feed.ts (the feed client)
+└── upsert-product/              # upsert-product-tool.ts + product-schema.ts + db-readwrite.ts
+```
+
+File names carry their kind: `*-tool.ts` (model-facing tool), `*-agent.ts`, `*-prompt.ts`.
+
+The tool file itself contains the model-facing description, the permissive AI SDK `tool()` schema (type + describe), the **strict boundary validation** (Zod) in the `execute*` function, and the `<name>Tool(report)` factory. `execute*` functions **never throw** — they return a `ToolOutcome`, so even bad LLM input comes back as our own Hungarian error text, not an SDK exception. The `report` callback is the side-channel that feeds the full outcome to the `Trace` (the model only sees `content`). **Adding a tool = one new directory + one line in the agent's toolset** (`buildTools` in the agent file).
 
 ### Read/write separation (NFR1) — the core safety design
 

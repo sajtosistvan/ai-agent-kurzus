@@ -4,10 +4,10 @@ import {
   runAgentLoop,
   type AskOptions,
   type AskResult,
-} from './agent-loop.js';
-import { runSqlTool } from '../tools/run-sql.js';
-import { fetchFeedTool } from '../tools/fetch-feed.js';
-import { upsertProductTool } from '../tools/upsert-product.js';
+} from '../agent-loop.js';
+import { runSqlTool } from '../../tools/run-sql/run-sql-tool.js';
+import { fetchFeedTool } from '../../tools/fetch-feed/fetch-feed-tool.js';
+import { upsertProductTool } from '../../tools/upsert-product/upsert-product-tool.js';
 
 // ingest-agent.ts — a KATALÓGUS-KEZELŐ agent. Ugyanaz a loop, mint a query-agentnél, de MÁS a
 // szerep és a toolkészlet: itt a modell OLVAS (runSql), feedet néz (fetchFeed) ÉS ÍR

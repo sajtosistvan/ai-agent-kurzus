@@ -1,7 +1,7 @@
 import {
   executeGetClientPreferences,
   CLIENT_PREFERENCES,
-} from './get-client-preferences.js';
+} from './get-client-preferences-tool.js';
 
 describe('executeGetClientPreferences', () => {
   it('returns budget and care level for a known client code', async () => {

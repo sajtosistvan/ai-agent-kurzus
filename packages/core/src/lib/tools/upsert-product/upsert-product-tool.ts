@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import type { ToolOutcome, ToolReporter } from './tool-outcome.js';
+import type { ToolOutcome, ToolReporter } from '../tool-outcome.js';
 import {
   ProductInputSchema,
   CATEGORY,

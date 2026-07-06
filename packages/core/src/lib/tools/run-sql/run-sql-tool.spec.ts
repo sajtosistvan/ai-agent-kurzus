@@ -1,4 +1,4 @@
-import { executeRunSql } from './run-sql.js';
+import { executeRunSql } from './run-sql-tool.js';
 
 describe('executeRunSql', () => {
   it('rejects invalid input before touching the DB', async () => {

@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { loadConfig } from '../config.js';
+import { loadConfig } from '../../config.js';
 
 // READ-ONLY adatkapcsolat az agent runSql-jéhez. A jog a DB-szerepkörből (plantbase_ro) jön;
 // itt extra védőkorlátok: statement_timeout és read-only session. Az agent NEM Prismán kérdez

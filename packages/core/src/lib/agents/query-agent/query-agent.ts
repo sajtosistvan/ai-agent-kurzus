@@ -4,9 +4,9 @@ import {
   runAgentLoop,
   type AskOptions,
   type AskResult,
-} from './agent-loop.js';
-import { runSqlTool } from '../tools/run-sql.js';
-import { getClientPreferencesTool } from '../tools/get-client-preferences.js';
+} from '../agent-loop.js';
+import { runSqlTool } from '../../tools/run-sql/run-sql-tool.js';
+import { getClientPreferencesTool } from '../../tools/get-client-preferences/get-client-preferences-tool.js';
 
 // query-agent.ts — a KÉRDÉS-VÁLASZ agent (a termék "ask" oldala). READ-ONLY: természetes
 // nyelvű kérdésből SQL-t ír, lefuttatja, magyarul válaszol. Egy agent = prompt + toolok + loop:
