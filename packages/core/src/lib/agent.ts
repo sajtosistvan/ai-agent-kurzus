@@ -1,17 +1,30 @@
-import Anthropic from '@anthropic-ai/sdk';
+import {
+  generateText,
+  stepCountIs,
+  type ModelMessage,
+  type StepResult,
+  type ToolSet,
+} from 'ai';
+import { createAnthropic, type AnthropicProvider } from '@ai-sdk/anthropic';
 import { loadConfig } from './config.js';
 import { buildSystemPrompt } from './prompts.js';
-import { tools, executeTool } from './tools/index.js';
-import { Trace, traceLog } from './trace.js';
+import { buildAiTools, type RunSqlOutcome } from './tools/index.js';
+import { Trace } from './trace.js';
 
-// agent.ts — a KÉZZEL ÍRT tool-use loop az Anthropic SDK messages.create fölött (nem helper,
-// nem framework). Itt látszik az egész mechanika: prompt → hívás → stop_reason → function call
-// → tool_result → vissza, amíg végső szöveges válasz nem lesz. A nyomot a Trace írja (konzol + JSON).
+// agent.ts — az agent-loop a Vercel AI SDK-n. A 2–3. órán KÉZZEL írtuk meg ugyanezt
+// (prompt → hívás → stop_reason → tool → tool_result → vissza) a nyers Anthropic SDK fölött —
+// ezért pontosan tudjuk, mit csinál helyettünk a framework:
+//   - a loopot a `generateText` pörgeti, amíg a modell toolt kér (finishReason: 'tool-calls'),
+//   - a kör-limitünk a `stopWhen: stepCountIs(n)` (régen: MAX_TOOL_ITERATIONS for-ciklus),
+//   - a tool-dispatch a tool-definíciók `execute`-ja (régen: executeTool switch),
+//   - a kontextus-görgetést (üzenetek hozzáfűzése körről körre) az SDK végzi.
+// A TRANSZPARENCIA marad: a `prepareStep` hookban látjuk, MIT küldünk ki minden körben,
+// az `onStepFinish`-ben pedig, MI történt — a Trace ugyanazt a színes nyomot írja, mint eddig.
 
 const MAX_TOKENS = 1024;
 const MAX_TOOL_ITERATIONS = 6;
 
-export type Message = Anthropic.MessageParam;
+export type Message = ModelMessage;
 
 export interface AskOptions {
   /** Korábbi beszélgetés (interaktív mód) — ezt folytatjuk. */
@@ -30,12 +43,12 @@ export interface AskResult {
   tracePath: string;
 }
 
-let client: Anthropic | null = null;
-function getClient(apiKey: string): Anthropic {
-  if (!client) {
-    client = new Anthropic({ apiKey });
+let provider: AnthropicProvider | null = null;
+function getProvider(apiKey: string): AnthropicProvider {
+  if (!provider) {
+    provider = createAnthropic({ apiKey });
   }
-  return client;
+  return provider;
 }
 
 export async function askAgent(
@@ -43,14 +56,13 @@ export async function askAgent(
   options: AskOptions = {},
 ): Promise<AskResult> {
   const trimmed = question.trim();
-  //traceLog(`Induljunk...`);
   if (trimmed === '') {
     throw new Error('Üres kérdést nem lehet feltenni.');
   }
 
   const config = loadConfig();
   const systemPrompt = buildSystemPrompt();
-  const anthropic = getClient(config.apiKey);
+  const anthropic = getProvider(config.apiKey);
   const trace = new Trace({
     question: trimmed,
     model: config.model,
@@ -58,73 +70,91 @@ export async function askAgent(
     print: options.print,
   });
 
-  // A beszélgetés = egy üzenet-tömb, amit körről körre bővítünk (history + az új kérdés).
+  // A beszélgetés = egy üzenet-tömb (history + az új kérdés). Ezt adjuk át az SDK-nak,
+  // a körönkénti bővítést (assistant + tool üzenetek) már ő végzi.
   const messages: Message[] = [
     ...(options.history ?? []),
     { role: 'user', content: trimmed },
   ];
 
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let stopReason: string | null = null;
-  let answer = '';
+  // A tool-futások MELLÉK-csatornája a Trace-nek: az execute a modellnek csak a contentet
+  // adja vissza, a teljes outcome-ot (guardolt SQL, sorszám, hiba) itt gyűjtjük toolCallId
+  // szerint, és az onStepFinish-ben párosítjuk a kör tool-hívásaihoz.
+  const outcomes = new Map<
+    string,
+    { name: string; input: unknown; outcome: RunSqlOutcome }
+  >();
+  const tools = buildAiTools((toolCallId, name, input, outcome) => {
+    outcomes.set(toolCallId, { name, input, outcome });
+  });
+  const toolNames = Object.keys(tools);
 
-  // A LOOP három üteme körönként:  KÜLD (a teljes kontextust, újra) → HOZZÁFŰZ (a modell válasza)
-  // → HOZZÁFŰZ (a tool-eredmény) → vissza a tetejére a MÁR NAGYOBB kontextussal.
-  for (let i = 1; i <= MAX_TOOL_ITERATIONS; i++) {
-    // 1) KÜLD: ez az EGY dolog, amit elküldünk — system + tools + a TELJES beszélgetés. Minden
-    //    körben újra, egyre nagyobb `messages`-szel. (A trace kiírja, mit küldünk.)
-    const request = {
-      model: config.model,
-      max_tokens: MAX_TOKENS,
-      system: systemPrompt,
-      tools, // tools/index.ts → [runSqlTool]
-      messages,
-    };
-    trace.request(i, request); // kiírja a hívás MINDEN paraméterét
-    const response = await anthropic.messages.create(request);
-
-    inputTokens += response.usage.input_tokens;
-    outputTokens += response.usage.output_tokens;
-    stopReason = response.stop_reason;
-    const turn = trace.modelTurn(i, response);
-
-    traceLog('Induljunk...');
-
-    // 2) HOZZÁFŰZ: a modell fordulóját (szöveg + esetleges tool_use blokkok) a kontextushoz.
-    messages.push({ role: 'assistant', content: response.content });
-
-    // Nincs több tool-kérés → ez a végső válasz, kilépünk a loopból.
-    if (response.stop_reason !== 'tool_use') {
-      answer = turn.modelText;
-      //traceLog(`Kilépek...`);
-      break;
-    }
-
-    // 3) HOZZÁFŰZ: a modell function(öke)t kért → lefuttatjuk, és tool_result-ként visszaadjuk.
-    const toolUses = response.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
-    );
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const use of toolUses) {
-      const outcome = await executeTool(use.name, use.input);
-      trace.toolStep(turn, use, outcome);
-      toolResults.push({
-        type: 'tool_result',
-        tool_use_id: use.id,
-        content: outcome.content,
-        is_error: outcome.isError,
+  const result = await generateText({
+    model: anthropic(config.model),
+    maxOutputTokens: MAX_TOKENS,
+    system: systemPrompt,
+    messages,
+    tools,
+    // Régen: for (let i = 1; i <= MAX_TOOL_ITERATIONS; i++) — most deklaratívan mondjuk meg,
+    // meddig mehet a loop.
+    stopWhen: stepCountIs(MAX_TOOL_ITERATIONS),
+    // HÍVÁS ELŐTT: ezt küldjük ki — a teljes, körről körre növekvő kontextus.
+    prepareStep: ({ stepNumber, messages: outgoing }) => {
+      trace.request(stepNumber + 1, {
+        model: config.model,
+        maxOutputTokens: MAX_TOKENS,
+        system: systemPrompt,
+        toolNames,
+        messages: outgoing,
       });
-    }
-    messages.push({ role: 'user', content: toolResults });
-  }
+      return {};
+    },
+    // HÍVÁS UTÁN: mi történt a körben — a modell szövege, tool-kérései és a tool-eredmények.
+    onStepFinish: (step: StepResult<ToolSet>) => {
+      const turn = trace.modelTurn(trace.turnCount + 1, {
+        finishReason: step.finishReason,
+        text: step.text,
+        toolCalls: step.toolCalls.map((call) => ({
+          toolName: call.toolName,
+          input: call.input,
+        })),
+        usage: {
+          inputTokens: step.usage.inputTokens,
+          outputTokens: step.usage.outputTokens,
+        },
+      });
+      for (const toolResult of step.toolResults) {
+        const record = outcomes.get(toolResult.toolCallId);
+        if (record) {
+          trace.toolStep(
+            turn,
+            { toolName: record.name, input: record.input },
+            record.outcome,
+          );
+        }
+      }
+    },
+  });
 
-  if (answer === '') {
-    answer =
-      'Nem sikerült végső választ adni a megengedett lépésszámon belül. Pontosítsd a kérdést.';
-  }
+  const answer =
+    result.text.trim() !== ''
+      ? result.text
+      : 'Nem sikerült végső választ adni a megengedett lépésszámon belül. Pontosítsd a kérdést.';
 
-  const usage = { inputTokens, outputTokens };
+  // A frissített beszélgetés: a kiinduló üzenetek + amit a futás generált (assistant + tool
+  // üzenetek) — az interaktív mód ezt viszi tovább.
+  const updatedMessages: Message[] = [...messages, ...result.response.messages];
+
+  const usage = {
+    inputTokens: result.totalUsage.inputTokens ?? 0,
+    outputTokens: result.totalUsage.outputTokens ?? 0,
+  };
   const tracePath = trace.finish(answer, usage);
-  return { answer, messages, usage, stopReason, tracePath };
+  return {
+    answer,
+    messages: updatedMessages,
+    usage,
+    stopReason: result.finishReason,
+    tracePath,
+  };
 }

@@ -1,4 +1,3 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { ensureReadOnlySelect, SqlGuardError } from './sql-guard.js';
 import { runReadOnlyQuery } from './db-readonly.js';
@@ -6,25 +5,14 @@ import { runReadOnlyQuery } from './db-readonly.js';
 // A runSql tool: a modell ezzel futtatja a generált SELECT-et a katalóguson (read-only).
 // Az LLM-output megbízhatatlan → Zod-validáció a határon, majd a SELECT-only guard, majd a
 // read-only kapcsolat. Az eredmény vagy a hiba szövegként megy vissza a modellnek.
+// A modell-felé eső séma (AI SDK `tool()`) a tools/index.ts-ben áll össze — itt a név,
+// a leírás és a végrehajtás él.
 
 export const RUN_SQL_TOOL_NAME = 'runSql';
 
-export const runSqlTool: Anthropic.Tool = {
-  name: RUN_SQL_TOOL_NAME,
-  description:
-    'Lefuttat EGY read-only SQL SELECT-et a products katalógus táblán, és visszaadja a sorokat. ' +
-    'Csak SELECT (vagy WITH ... SELECT) engedélyezett; mindig tegyél LIMIT-et.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'A futtatandó SQL SELECT lekérdezés a products táblán.',
-      },
-    },
-    required: ['query'],
-  },
-};
+export const RUN_SQL_DESCRIPTION =
+  'Lefuttat EGY read-only SQL SELECT-et a products katalógus táblán, és visszaadja a sorokat. ' +
+  'Csak SELECT (vagy WITH ... SELECT) engedélyezett; mindig tegyél LIMIT-et.';
 
 const InputSchema = z.object({ query: z.string().min(1) });
 

@@ -1,12 +1,12 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import type { RunSqlOutcome } from './run-sql.js';
 
 // A getClientPreferences tool: ügyfélkód alapján adja vissza az ügyfél preferenciáit —
 // a büdzsét (Ft) és a preferált növény-IGÉNYESSÉGET (mennyire gondozásigényes növényt szeret).
-// A CLIENT_PREFERENCES az EGYETLEN forrás — ebből származik az enum a tool-sémában ÉS a Zod-guard is,
-// így a kettő nem csúszhat el. A kimenet a runSql-lel közös outcome alakot követi, hogy a loop
-// és a Trace változatlanul kezelje.
+// A CLIENT_PREFERENCES az EGYETLEN forrás — ebből származik a leírásban felsorolt kódlista ÉS
+// a Zod-guard is, így a kettő nem csúszhat el. A kimenet a runSql-lel közös outcome alakot
+// követi, hogy a loop és a Trace változatlanul kezelje. A modell-felé eső séma (AI SDK
+// `tool()`) a tools/index.ts-ben áll össze.
 
 export const GET_CLIENT_PREFERENCES_TOOL_NAME = 'getClientPreferences';
 
@@ -36,24 +36,10 @@ export const CLIENT_CODES = Object.keys(CLIENT_PREFERENCES) as [
   ...ClientCode[],
 ];
 
-export const getClientPreferencesTool: Anthropic.Tool = {
-  name: GET_CLIENT_PREFERENCES_TOOL_NAME,
-  description:
-    'Visszaadja egy adott ügyfél preferenciáit: a büdzsét forintban és a preferált növény ' +
-    'igényességét (ALACSONY | KÖZEPES | MAGAS gondozási igény). A clientCode a kötelező ' +
-    'ügyfélkód. Csak a felsorolt ügyfélkódok érvényesek.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      clientCode: {
-        type: 'string',
-        enum: [...CLIENT_CODES],
-        description: 'Az ügyfél kódja, amelyhez a preferenciákat kérjük.',
-      },
-    },
-    required: ['clientCode'],
-  },
-};
+export const GET_CLIENT_PREFERENCES_DESCRIPTION =
+  'Visszaadja egy adott ügyfél preferenciáit: a büdzsét forintban és a preferált növény ' +
+  'igényességét (ALACSONY | KÖZEPES | MAGAS gondozási igény). A clientCode a kötelező ' +
+  `ügyfélkód. Csak ezek az ügyfélkódok érvényesek: ${CLIENT_CODES.join(' | ')}.`;
 
 const InputSchema = z.object({ clientCode: z.enum(CLIENT_CODES) });
 
