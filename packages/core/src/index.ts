@@ -4,3 +4,5 @@ export * from './lib/prompts.js';
 export * from './lib/tools/index.js';
 export * from './lib/trace.js';
 export * from './lib/agent.js';
+export * from './lib/ingest-prompts.js';
+export * from './lib/ingest-agent.js';

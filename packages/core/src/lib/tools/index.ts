@@ -11,6 +11,17 @@ import {
   GET_CLIENT_PREFERENCES_DESCRIPTION,
   executeGetClientPreferences,
 } from './client-preferences.js';
+import {
+  UPSERT_PRODUCT_TOOL_NAME,
+  UPSERT_PRODUCT_DESCRIPTION,
+  executeUpsertProduct,
+} from './upsert-product.js';
+import {
+  FETCH_FEED_TOOL_NAME,
+  FETCH_FEED_DESCRIPTION,
+  executeFetchFeed,
+} from './fetch-feed.js';
+import { CATEGORY, LOCATION, LIGHT, WATERING, DIFFICULTY } from './product-schema.js';
 
 // A modell-felé eső tool-felület: MILYEN toolok vannak, és hogyan futtatjuk őket.
 // Két réteg:
@@ -45,6 +56,37 @@ export {
   closeReadOnlyPool,
   type SqlResult,
 } from './db-readonly.js';
+export {
+  UPSERT_PRODUCT_TOOL_NAME,
+  UPSERT_PRODUCT_DESCRIPTION,
+  executeUpsertProduct,
+} from './upsert-product.js';
+export {
+  upsertProduct,
+  closeReadWritePool,
+  type UpsertResult,
+  type UpsertAction,
+} from './db-readwrite.js';
+export {
+  FETCH_FEED_TOOL_NAME,
+  FETCH_FEED_DESCRIPTION,
+  executeFetchFeed,
+} from './fetch-feed.js';
+export {
+  fetchFeedCandidates,
+  type FeedCandidate,
+  type FeedDomain,
+  type FetchFeedResult,
+} from './feed-fetch.js';
+export {
+  ProductInputSchema,
+  type ProductInput,
+  CATEGORY,
+  LOCATION,
+  LIGHT,
+  WATERING,
+  DIFFICULTY,
+} from './product-schema.js';
 
 /**
  * A modell egy toolt kért (name + input) → lefuttatjuk. Ismeretlen toolra hibát
@@ -59,6 +101,12 @@ export async function executeTool(
   }
   if (name === GET_CLIENT_PREFERENCES_TOOL_NAME) {
     return executeGetClientPreferences(input);
+  }
+  if (name === UPSERT_PRODUCT_TOOL_NAME) {
+    return executeUpsertProduct(input);
+  }
+  if (name === FETCH_FEED_TOOL_NAME) {
+    return executeFetchFeed(input);
   }
   return {
     content: `Ismeretlen tool: ${name}`,
@@ -82,21 +130,29 @@ export type ToolOutcomeListener = (
  * így a hibás bemenetre is a saját, magyar hibaszövegünk megy vissza a modellnek,
  * nem az SDK kivétele.
  */
+// A tool-ok MODELL-felé eső sémái szándékosan megengedőek (típus + describe); a SZIGORÚ validáció
+// az executeTool mögött marad, hogy hibás bemenetre a saját magyar üzenetünk menjen vissza. A `tool()`
+// az inline inputSchema-ból inferálja az execute input típusát — ezért definiáljuk minden toolt inline.
+
+const runSqlTool = (onOutcome?: ToolOutcomeListener) =>
+  tool({
+    description: RUN_SQL_DESCRIPTION,
+    inputSchema: z.object({
+      query: z
+        .string()
+        .describe('A futtatandó SQL SELECT lekérdezés a products táblán.'),
+    }),
+    execute: async (input, { toolCallId }) => {
+      const outcome = await executeTool(RUN_SQL_TOOL_NAME, input);
+      onOutcome?.(toolCallId, RUN_SQL_TOOL_NAME, input, outcome);
+      return outcome.content; // a modell ugyanazt kapja, mint a kézi loopban
+    },
+  });
+
+/** A QUERY-agent (read-only) tool-készlete: katalógus-lekérdezés + ügyfél-preferenciák. */
 export function buildAiTools(onOutcome?: ToolOutcomeListener): ToolSet {
   return {
-    [RUN_SQL_TOOL_NAME]: tool({
-      description: RUN_SQL_DESCRIPTION,
-      inputSchema: z.object({
-        query: z
-          .string()
-          .describe('A futtatandó SQL SELECT lekérdezés a products táblán.'),
-      }),
-      execute: async (input, { toolCallId }) => {
-        const outcome = await executeTool(RUN_SQL_TOOL_NAME, input);
-        onOutcome?.(toolCallId, RUN_SQL_TOOL_NAME, input, outcome);
-        return outcome.content; // a modell ugyanazt kapja, mint a kézi loopban
-      },
-    }),
+    [RUN_SQL_TOOL_NAME]: runSqlTool(onOutcome),
     [GET_CLIENT_PREFERENCES_TOOL_NAME]: tool({
       description: GET_CLIENT_PREFERENCES_DESCRIPTION,
       inputSchema: z.object({
@@ -105,11 +161,72 @@ export function buildAiTools(onOutcome?: ToolOutcomeListener): ToolSet {
           .describe('Az ügyfél kódja, amelyhez a preferenciákat kérjük.'),
       }),
       execute: async (input, { toolCallId }) => {
-        const outcome = await executeTool(
-          GET_CLIENT_PREFERENCES_TOOL_NAME,
-          input,
-        );
+        const outcome = await executeTool(GET_CLIENT_PREFERENCES_TOOL_NAME, input);
         onOutcome?.(toolCallId, GET_CLIENT_PREFERENCES_TOOL_NAME, input, outcome);
+        return outcome.content;
+      },
+    }),
+  };
+}
+
+// A modellnek megmutatott termék-alak: leíró, de megengedő (a szigorú Zod az executeUpsertProduct-ban
+// fut, hogy hibás bemenetre a saját magyar üzenetünk menjen vissza, ne az SDK kivétele).
+const upsertProductInputSchema = z.object({
+  name: z.string().describe('MAGYAR termék-név.'),
+  latinName: z.string().describe('Botanikai (latin) név — ez a termék kulcsa (dedup).'),
+  category: z.string().describe(`Egy ezek közül: ${CATEGORY.join(' | ')}.`),
+  location: z.string().describe(`Egy ezek közül: ${LOCATION.join(' | ')}.`),
+  price: z.number().describe('Ár HUF-ban (> 0).'),
+  salePrice: z.number().nullable().describe('Akciós ár HUF-ban, vagy null. Csak a price alatt lehet.'),
+  stock: z.number().int().describe('Raktárkészlet (db), >= 0.'),
+  light: z.string().describe(`Egy ezek közül: ${LIGHT.join(' | ')}.`),
+  watering: z.string().describe(`Egy ezek közül: ${WATERING.join(' | ')}.`),
+  difficulty: z.string().describe(`Egy ezek közül: ${DIFFICULTY.join(' | ')}.`),
+  currentHeightCm: z.number().int().describe('Jelenlegi magasság cm.'),
+  maxHeightCm: z.number().int().describe('Kifejlett magasság cm.'),
+  currentPotCm: z.number().int().describe('Cserép átmérő cm.'),
+  petSafe: z.boolean().describe('Háziállat-barát.'),
+  kidSafe: z.boolean().describe('Gyerekbiztos.'),
+  airPurifying: z.boolean().describe('Légtisztító.'),
+  rating: z.number().describe('Értékelés 0–5. Frissen felvett terméknél 0.'),
+  reviewsCount: z.number().int().describe('Értékelések száma. Frissen felvett terméknél 0.'),
+  description: z.string().describe('MAGYAR leírás a termékről.'),
+});
+
+/** Az INGEST-agent tool-készlete: katalógus-olvasás (read-only runSql) + írás (upsertProduct).
+ *  Írni KIZÁRÓLAG az upsertProduct szigorúan validált útján lehet — nyers write-SQL nincs. */
+export function buildIngestAiTools(onOutcome?: ToolOutcomeListener): ToolSet {
+  return {
+    [RUN_SQL_TOOL_NAME]: runSqlTool(onOutcome),
+    [FETCH_FEED_TOOL_NAME]: tool({
+      description: FETCH_FEED_DESCRIPTION,
+      inputSchema: z.object({
+        source: z
+          .enum(['tropicalhome.hu', 'thesill.com'])
+          .optional()
+          .describe('A feed forrása. Alap: tropicalhome.hu.'),
+        filter: z
+          .string()
+          .optional()
+          .describe('Szűrő névre/latin névre (részszó), pl. "monstera mint".'),
+        limit: z
+          .number()
+          .int()
+          .optional()
+          .describe('Max visszaadott találat (alap 20).'),
+      }),
+      execute: async (input, { toolCallId }) => {
+        const outcome = await executeTool(FETCH_FEED_TOOL_NAME, input);
+        onOutcome?.(toolCallId, FETCH_FEED_TOOL_NAME, input, outcome);
+        return outcome.content;
+      },
+    }),
+    [UPSERT_PRODUCT_TOOL_NAME]: tool({
+      description: UPSERT_PRODUCT_DESCRIPTION,
+      inputSchema: upsertProductInputSchema,
+      execute: async (input, { toolCallId }) => {
+        const outcome = await executeTool(UPSERT_PRODUCT_TOOL_NAME, input);
+        onOutcome?.(toolCallId, UPSERT_PRODUCT_TOOL_NAME, input, outcome);
         return outcome.content;
       },
     }),

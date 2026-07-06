@@ -64,4 +64,4 @@ logs/
 # generált Prisma kliens (packages/db)
 packages/db/generated/
 vite.config.*.timestamp*
-vitest.config.*.timestamp*
+vitest.config.*.timestamp*.playwright-mcp/
