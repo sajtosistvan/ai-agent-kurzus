@@ -3,16 +3,20 @@ import { join } from 'node:path';
 import { Command } from 'commander';
 import {
   askAgent,
+  runIngestAgent,
   loadConfig,
   ConfigError,
   closeReadOnlyPool,
+  closeReadWritePool,
   setWatchLog,
 } from '@plantbase/core';
 import { runInteractive } from './interactive.js';
 
-// plantbase ask "<kérdés>"   -> egyszeri válasz (élő színes trace + logs/<ts>.json)
-// plantbase ask              -> interaktív mód (beszélgetés-memóriával, exit-ig)
-// plantbase ask --quiet ...  -> nincs élő trace (csak a válasz), a JSON nyom akkor is elkészül
+// plantbase ask "<kérdés>"      -> egyszeri válasz (élő színes trace + logs/<ts>.json)
+// plantbase ask                 -> interaktív mód (beszélgetés-memóriával, exit-ig)
+// plantbase ask --quiet ...     -> nincs élő trace (csak a válasz), a JSON nyom akkor is elkészül
+// plantbase ingest "<utasítás>" -> a DB-töltő agent (webshop-feed → products tábla, RW kapcsolat)
+//                                  UGYANAZZAL az élő trace-szel, mint az ask.
 
 const program = new Command();
 
@@ -65,6 +69,49 @@ program
     } finally {
       // A read-only pg-pool életben tartja az event loopot — zárjuk, hogy tisztán kilépjünk.
       await closeReadOnlyPool();
+    }
+  });
+
+program
+  .command('ingest')
+  .description(
+    'A DB-töltő agent: webshop-feedből (thesill | tropicalhome) frissíti a products táblát.',
+  )
+  .argument(
+    '<utasítás...>',
+    'mit töltsön be (pl. "tölts be 3 futónövényt a tropicalhome-ról")',
+  )
+  .option(
+    '--quiet',
+    'ne írja ki az élő trace-t (a JSON nyom akkor is elkészül)',
+    false,
+  )
+  .action(async (words: string[], options: AskOptions) => {
+    // Fail-fast: ugyanaz a konfigurációs kapu, mint az ask-nál.
+    try {
+      loadConfig();
+    } catch (error: unknown) {
+      if (error instanceof ConfigError) {
+        console.error(`plantbase: ${error.message}`);
+        process.exit(1);
+      }
+      throw error;
+    }
+
+    // Ugyanaz a control room: a trace az agent.log-ba is megy (`tail -f logs/agent.log`).
+    setWatchLog(join(process.cwd(), 'logs', 'agent.log'));
+
+    const instruction = words.join(' ').trim();
+    try {
+      const result = await runIngestAgent(instruction, {
+        print: !options.quiet,
+      });
+      if (options.quiet) {
+        console.log(result.summary);
+      }
+    } finally {
+      // Az ingest a READ-WRITE poolt használja — azt zárjuk kilépés előtt.
+      await closeReadWritePool();
     }
   });
 
