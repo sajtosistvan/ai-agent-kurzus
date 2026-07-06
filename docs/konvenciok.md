@@ -7,6 +7,10 @@
 - `camelCase` változó/függvény, `PascalCase` típus/osztály/komponens, `UPPER_SNAKE` konstans.
 - Beszédes nevek; boolean: `is`/`has`/`can` prefix; függvény = ige (`fetchUser`, `parseQuery`).
 - Fájlnév: `kebab-case`. Egy fájl egy felelősség.
+- **A fájlnév hordozza a szerepét is** — a típus-utótagból ránézésre látszik, mi micsoda:
+  `*-agent.ts`, `*-tool.ts`, `*-prompt.ts`, `*-schema.ts`, `*.spec.ts`. Ne legyen két,
+  csak szórendben eltérő név két különböző dologra (pl. `fetch-feed` tool vs `feed-fetch` kliens —
+  az utóbbit nevezd a funkciójáról: `shopify-feed`).
 
 ## TypeScript
 
@@ -41,6 +45,15 @@
 - Sok kis, fókuszált fájl (200-400 sor, max 800). Magas kohézió, alacsony csatolás.
 - Feature/domain szerint rendezz, ne típus szerint.
 - Nincs mély beágyazás (>4 szint); korai return.
+- **Egy fogalom = egy könyvtár, benne MINDEN hozzávalója.** Agent-projektben: minden agent
+  és minden tool saját könyvtárat kap a teljes felszerelésével (séma, guard, kliens,
+  DB-kapcsolat, teszt) — aki a tool-t olvassa, egy helyen lát mindent, ami hozzá tartozik.
+- **A közös kód eggyel kintebb lakik**, a fogalmak szintjén (pl. `agents/agent-loop.ts`,
+  `tools/tool-outcome.ts`) — így a könyvtárlista maga a térkép: ami mappa, az egy példány;
+  ami fájl, az a közös alap.
+- Bekötés = egy sor: új tool felvétele az agenthez csak egy bejegyzés a toolset-jében.
+  Ne legyen központi dispatch/registry, amit párhuzamosan kell karbantartani.
+- A teszt a tesztelt kód mellett lakik (`run-sql/run-sql-tool.spec.ts`), nem külön fában.
 
 ## Naplózás
 
