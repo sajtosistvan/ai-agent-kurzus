@@ -1,7 +1,7 @@
-// ingest-prompts.ts — az INGEST-agent system promptja. KÜLÖN a query-agent promptjától (prompts.ts):
+// ingest-prompt.ts — az INGEST-agent system promptja. KÜLÖN a query-agent promptjától (query-prompt.ts):
 // más a szerep (katalógus SZERKESZTÉSE, nem lekérdezése) és más a toolkészlet (runSql + upsertProduct).
 // XML-szerű tagek tagolják a részeket (csökkenti a hallucinációt), a séma + szabályok itt élnek.
-export function buildIngestSystemPrompt(): string {
+export function buildIngestPrompt(): string {
   return `
 <role>
 Te a Plantbase katalógus-kezelő asszisztense vagy: a webshop munkatársával BESZÉLGETVE

@@ -6,23 +6,21 @@ import {
   type ToolSet,
 } from 'ai';
 import { createAnthropic, type AnthropicProvider } from '@ai-sdk/anthropic';
-import { loadConfig } from './config.js';
-import { buildSystemPrompt } from './prompts.js';
-import { buildAiTools, type RunSqlOutcome } from './tools/index.js';
-import { Trace } from './trace.js';
+import { loadConfig } from '../config.js';
+import { Trace } from '../trace.js';
+import type { ToolOutcome, ToolReporter } from '../tools/tool-outcome.js';
 
-// agent.ts — az agent-loop a Vercel AI SDK-n. A 2–3. órán KÉZZEL írtuk meg ugyanezt
-// (prompt → hívás → stop_reason → tool → tool_result → vissza) a nyers Anthropic SDK fölött —
-// ezért pontosan tudjuk, mit csinál helyettünk a framework:
+// agent-loop.ts — AZ agent-loop, egy helyen. Mindkét agent (query, ingest) EZT futtatja,
+// csak mást ad be: saját system promptot + saját toolkészletet. Egy agent = prompt + toolok + loop.
+//
+// A 2–3. órán KÉZZEL írtuk meg ugyanezt (prompt → hívás → stop_reason → tool → tool_result →
+// vissza) a nyers Anthropic SDK fölött — ezért pontosan tudjuk, mit csinál helyettünk az AI SDK:
 //   - a loopot a `generateText` pörgeti, amíg a modell toolt kér (finishReason: 'tool-calls'),
-//   - a kör-limitünk a `stopWhen: stepCountIs(n)` (régen: MAX_TOOL_ITERATIONS for-ciklus),
-//   - a tool-dispatch a tool-definíciók `execute`-ja (régen: executeTool switch),
+//   - a kör-limit a `stopWhen: stepCountIs(n)` (régen: MAX_TOOL_ITERATIONS for-ciklus),
+//   - a tool-futtatás a tool-definíciók `execute`-ja (régen: executeTool switch),
 //   - a kontextus-görgetést (üzenetek hozzáfűzése körről körre) az SDK végzi.
 // A TRANSZPARENCIA marad: a `prepareStep` hookban látjuk, MIT küldünk ki minden körben,
 // az `onStepFinish`-ben pedig, MI történt — a Trace ugyanazt a színes nyomot írja, mint eddig.
-
-const MAX_TOKENS = 1024;
-const MAX_TOOL_ITERATIONS = 6;
 
 export type Message = ModelMessage;
 
@@ -43,6 +41,20 @@ export interface AskResult {
   tracePath: string;
 }
 
+/** Amivel egy AGENT paraméterezi a közös loopot: a személyisége és a képességei. */
+export interface AgentDefinition {
+  /** Az agent szerepe és szabályai (a system prompt). */
+  systemPrompt: string;
+  /** Az agent toolkészlete. A report-ot minden tool megkapja, ezen jelent a Trace-nek. */
+  buildTools: (report: ToolReporter) => ToolSet;
+  /** Max hány kört mehet a loop (tool-hívásokkal együtt). */
+  maxSteps: number;
+  /** A modell válaszának token-kerete. Nagy tool-argumentumokhoz (pl. upsert) nagyobb kell. */
+  maxOutputTokens: number;
+  /** Ha a loop a limit miatt válasz nélkül áll meg, ezt mondjuk a felhasználónak. */
+  emptyAnswer: string;
+}
+
 let provider: AnthropicProvider | null = null;
 function getProvider(apiKey: string): AnthropicProvider {
   if (!provider) {
@@ -51,22 +63,18 @@ function getProvider(apiKey: string): AnthropicProvider {
   return provider;
 }
 
-export async function askAgent(
+/** A közös loop-futtatás: kérdés + agent-definíció → válasz (+ trace, + frissített előzmény). */
+export async function runAgentLoop(
   question: string,
+  agent: AgentDefinition,
   options: AskOptions = {},
 ): Promise<AskResult> {
-  const trimmed = question.trim();
-  if (trimmed === '') {
-    throw new Error('Üres kérdést nem lehet feltenni.');
-  }
-
   const config = loadConfig();
-  const systemPrompt = buildSystemPrompt();
   const anthropic = getProvider(config.apiKey);
   const trace = new Trace({
-    question: trimmed,
+    question,
     model: config.model,
-    systemPrompt,
+    systemPrompt: agent.systemPrompt,
     print: options.print,
   });
 
@@ -74,36 +82,34 @@ export async function askAgent(
   // a körönkénti bővítést (assistant + tool üzenetek) már ő végzi.
   const messages: Message[] = [
     ...(options.history ?? []),
-    { role: 'user', content: trimmed },
+    { role: 'user', content: question },
   ];
 
-  // A tool-futások MELLÉK-csatornája a Trace-nek: az execute a modellnek csak a contentet
-  // adja vissza, a teljes outcome-ot (guardolt SQL, sorszám, hiba) itt gyűjtjük toolCallId
-  // szerint, és az onStepFinish-ben párosítjuk a kör tool-hívásaihoz.
+  // A tool-futások MELLÉK-csatornája a Trace-nek: a modell csak a tool contentjét kapja
+  // vissza, a teljes outcome-ot (összegzés, sorszám, hiba) itt gyűjtjük toolCallId szerint,
+  // és az onStepFinish-ben párosítjuk a kör tool-hívásaihoz.
   const outcomes = new Map<
     string,
-    { name: string; input: unknown; outcome: RunSqlOutcome }
+    { name: string; input: unknown; outcome: ToolOutcome }
   >();
-  const tools = buildAiTools((toolCallId, name, input, outcome) => {
+  const tools = agent.buildTools((toolCallId, name, input, outcome) => {
     outcomes.set(toolCallId, { name, input, outcome });
   });
   const toolNames = Object.keys(tools);
 
   const result = await generateText({
     model: anthropic(config.model),
-    maxOutputTokens: MAX_TOKENS,
-    system: systemPrompt,
+    maxOutputTokens: agent.maxOutputTokens,
+    system: agent.systemPrompt,
     messages,
     tools,
-    // Régen: for (let i = 1; i <= MAX_TOOL_ITERATIONS; i++) — most deklaratívan mondjuk meg,
-    // meddig mehet a loop.
-    stopWhen: stepCountIs(MAX_TOOL_ITERATIONS),
+    stopWhen: stepCountIs(agent.maxSteps),
     // HÍVÁS ELŐTT: ezt küldjük ki — a teljes, körről körre növekvő kontextus.
     prepareStep: ({ stepNumber, messages: outgoing }) => {
       trace.request(stepNumber + 1, {
         model: config.model,
-        maxOutputTokens: MAX_TOKENS,
-        system: systemPrompt,
+        maxOutputTokens: agent.maxOutputTokens,
+        system: agent.systemPrompt,
         toolNames,
         messages: outgoing,
       });
@@ -136,10 +142,7 @@ export async function askAgent(
     },
   });
 
-  const answer =
-    result.text.trim() !== ''
-      ? result.text
-      : 'Nem sikerült végső választ adni a megengedett lépésszámon belül. Pontosítsd a kérdést.';
+  const answer = result.text.trim() !== '' ? result.text : agent.emptyAnswer;
 
   // A frissített beszélgetés: a kiinduló üzenetek + amit a futás generált (assistant + tool
   // üzenetek) — az interaktív mód ezt viszi tovább.

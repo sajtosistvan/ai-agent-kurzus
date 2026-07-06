@@ -1,7 +1,7 @@
-// prompts.ts — a TERMÉK system promptja (L2). Egy template-literál blokk, úgy szerkeszted,
+// query-prompt.ts — a QUERY-agent system promptja. Egy template-literál blokk, úgy szerkeszted,
 // ahogy a modell látja. XML-szerű tagek tagolják a részeket (csökkenti a hallucinációt).
 // A modell a runSql toollal kérdezi a products katalógust; a séma + szabályok itt élnek.
-export function buildSystemPrompt(): string {
+export function buildQueryPrompt(): string {
   return `
 <role>
 Te a Plantbase asszisztens vagy: egy lakberendezőnek (és otthoni felhasználóknak) segítesz

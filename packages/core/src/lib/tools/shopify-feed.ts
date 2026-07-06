@@ -1,5 +1,5 @@
-// feed-fetch.ts — a Shopify products.json feedek DETERMINISZTIKUS olvasása/normalizálása az
-// ingest-agent fetchFeed tooljához. Ugyanaz a logika, mint a product-ingest skill fetch-feeds.mjs-e,
+// shopify-feed.ts — a Shopify products.json feedek DETERMINISZTIKUS olvasása/normalizálása.
+// Ez a fetch-feed tool MOTORJA (nem tool): sima kliens-kód, LLM nélkül. Ugyanaz a logika, mint a product-ingest skill fetch-feeds.mjs-e,
 // TS-ként a termékbe portolva: letölt + lapoz, kiszűri a nem-növényeket, kinyeri a biztonságosan
 // kinyerhető mezőket, HUF-ra vált (USD 310, EUR 350), és dedupál latin név szerint.
 // A nyelvi + gondozási enrichment (magyar név/leírás, fény/öntözés...) NEM itt van: azt az agent

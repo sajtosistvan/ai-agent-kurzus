@@ -1,41 +1,29 @@
+import { tool } from 'ai';
 import { z } from 'zod';
+import type { ToolOutcome, ToolReporter } from './tool-outcome.js';
 import { ensureReadOnlySelect, SqlGuardError } from './sql-guard.js';
 import { runReadOnlyQuery } from './db-readonly.js';
 
-// A runSql tool: a modell ezzel futtatja a generált SELECT-et a katalóguson (read-only).
-// Az LLM-output megbízhatatlan → Zod-validáció a határon, majd a SELECT-only guard, majd a
-// read-only kapcsolat. Az eredmény vagy a hiba szövegként megy vissza a modellnek.
-// A modell-felé eső séma (AI SDK `tool()`) a tools/index.ts-ben áll össze — itt a név,
-// a leírás és a végrehajtás él.
-
-export const RUN_SQL_TOOL_NAME = 'runSql';
-
-export const RUN_SQL_DESCRIPTION =
-  'Lefuttat EGY read-only SQL SELECT-et a products katalógus táblán, és visszaadja a sorokat. ' +
-  'Csak SELECT (vagy WITH ... SELECT) engedélyezett; mindig tegyél LIMIT-et.';
-
-const InputSchema = z.object({ query: z.string().min(1) });
+// runSql tool — a QUERY-agent ezzel futtatja a generált SELECT-et a katalóguson (READ-ONLY).
+//
+// EGY TOOL = EGY FÁJL, benne minden hozzávaló:
+//   1. a modellnek szánt leírás + megengedő séma (runSqlTool) — ebből érti a modell, mire való,
+//   2. a szigorú határvédelem + futtatás (executeRunSql) — Zod, SELECT-guard, read-only kapcsolat.
+// A séma szándékosan megengedő (csak típus): a SZIGORÚ validáció az execute-ban van, így hibás
+// bemenetre is a SAJÁT magyar hibaszövegünk megy vissza a modellnek, nem az SDK kivétele.
 
 const MAX_RESULT_ROWS = 100;
 
-export interface RunSqlOutcome {
-  /** A modellnek visszaadott szöveg (eredmény JSON vagy hibaüzenet). */
-  content: string;
-  isError: boolean;
-  /** Naplózáshoz: a ténylegesen futtatott (guardolt) SQL, ha eljutott odáig. */
-  executedSql: string | null;
-  rowCount: number | null;
-}
+const InputSchema = z.object({ query: z.string().min(1) });
 
-/** A tool-hívás végrehajtása: validál → guard → futtat → szövegesít. Soha nem dob, a hibát is
- *  a modellnek visszaadható szövegként adja vissza (is_error: true). */
-export async function executeRunSql(rawInput: unknown): Promise<RunSqlOutcome> {
+/** validál → guard → futtat → szövegesít. Soha nem dob. */
+export async function executeRunSql(rawInput: unknown): Promise<ToolOutcome> {
   const parsed = InputSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {
       content: `Hibás tool-bemenet: ${parsed.error.issues[0]?.message ?? 'ismeretlen'}`,
       isError: true,
-      executedSql: null,
+      summary: null,
       rowCount: null,
     };
   }
@@ -49,7 +37,7 @@ export async function executeRunSql(rawInput: unknown): Promise<RunSqlOutcome> {
     return {
       content: `SQL elutasítva: ${message}`,
       isError: true,
-      executedSql: null,
+      summary: null,
       rowCount: null,
     };
   }
@@ -66,7 +54,7 @@ export async function executeRunSql(rawInput: unknown): Promise<RunSqlOutcome> {
     return {
       content: JSON.stringify(payload),
       isError: false,
-      executedSql: sql,
+      summary: sql, // a guardolt SQL — ezt mutatja a Trace
       rowCount: result.rowCount,
     };
   } catch (error: unknown) {
@@ -74,8 +62,26 @@ export async function executeRunSql(rawInput: unknown): Promise<RunSqlOutcome> {
     return {
       content: `Adatbázis-hiba: ${message}`,
       isError: true,
-      executedSql: sql,
+      summary: sql,
       rowCount: null,
     };
   }
 }
+
+/** A modell-felé eső tool-definíció. Bekötés az agentbe: egy sor a toolset-ben. */
+export const runSqlTool = (report?: ToolReporter) =>
+  tool({
+    description:
+      'Lefuttat EGY read-only SQL SELECT-et a products katalógus táblán, és visszaadja a sorokat. ' +
+      'Csak SELECT (vagy WITH ... SELECT) engedélyezett; mindig tegyél LIMIT-et.',
+    inputSchema: z.object({
+      query: z
+        .string()
+        .describe('A futtatandó SQL SELECT lekérdezés a products táblán.'),
+    }),
+    execute: async (input, { toolCallId }) => {
+      const outcome = await executeRunSql(input);
+      report?.(toolCallId, 'runSql', input, outcome);
+      return outcome.content; // a modell PONTOSAN ezt kapja vissza
+    },
+  });

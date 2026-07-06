@@ -1,7 +1,7 @@
-import { buildSystemPrompt } from './prompts.js';
+import { buildQueryPrompt } from './query-prompt.js';
 
-describe('buildSystemPrompt', () => {
-  const prompt = buildSystemPrompt();
+describe('buildQueryPrompt', () => {
+  const prompt = buildQueryPrompt();
 
   it('should identify the assistant role', () => {
     expect(prompt).toContain('<role>');

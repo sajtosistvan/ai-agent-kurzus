@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { ModelMessage } from 'ai';
-import type { RunSqlOutcome } from './tools/index.js';
+import type { ToolOutcome } from './tools/tool-outcome.js';
 
 // Megfigyelhetőség: a futás közben épülő, kör-strukturált nyom. UGYANARRA az adatra két nézet:
 //  (1) élő, színes konzol — minden hívás ELŐTT kiírja a TELJES kontextust ("EZT küldjük"), hogy
@@ -71,7 +71,8 @@ export function traceLog(text: string): void {
 export interface ToolCall {
   name: string;
   input: unknown;
-  guardedSql: string | null;
+  /** A tool egysoros összegzése (pl. a guardolt SQL, vagy "UPSERT (created)"). */
+  summary: string | null;
   rowCount: number | null;
   isError: boolean;
   result: unknown; // a tool kimenete (sorok payloadja parse-olva, vagy a hibaszöveg)
@@ -228,11 +229,11 @@ export class Trace {
     return turn;
   }
 
-  /** Egy lefuttatott function call: a kért SQL, a guardolt SQL, a sorszám / hiba. */
+  /** Egy lefuttatott function call: a tool egysoros összegzése (pl. a guardolt SQL) + sorszám / hiba. */
   toolStep(
     turn: Turn,
     call: { toolName: string; input: unknown },
-    outcome: RunSqlOutcome,
+    outcome: ToolOutcome,
   ): void {
     let result: unknown = outcome.content;
     try {
@@ -243,29 +244,30 @@ export class Trace {
     turn.toolCalls.push({
       name: call.toolName,
       input: call.input,
-      guardedSql: outcome.executedSql,
+      summary: outcome.summary,
       rowCount: outcome.rowCount,
       isError: outcome.isError,
       result,
     });
 
-    // A modell SQL-je gyakran többsoros — a konzolon egy sorba lapítjuk (a teljes,
-    // formázott SQL a JSON-nyomban marad).
+    // Az összegzés (pl. a modell SQL-je) gyakran többsoros — a konzolon egy sorba lapítjuk
+    // (a teljes, formázott változat a JSON-nyomban marad).
     const flat = (s: string): string => s.replace(/\s+/g, ' ').trim();
-    const sql = outcome.executedSql
-      ? flat(outcome.executedSql)
+    const summary = outcome.summary
+      ? flat(outcome.summary)
       : flat((call.input as { query?: string } | null)?.query ?? '');
     this.line('');
-    this.line(c.yellow(bar(`TOOL · ${call.toolName} (lefuttatjuk a DB-n)`)));
-    if (sql) {
-      this.line(c.dim('  SQL (guard után): ') + c.cyan(sql));
+    this.line(c.yellow(bar(`TOOL · ${call.toolName} (a MI kódunk fut, nem LLM)`)));
+    if (summary) {
+      this.line(c.dim('  futás: ') + c.cyan(summary));
     }
     if (outcome.isError) {
       this.line(c.red('  → hiba: ') + outcome.content);
     } else {
       this.line(
-        c.green(`  → ${outcome.rowCount ?? 0} sor`) +
-          c.dim(' · hozzáfűzve a kontextushoz'),
+        c.green(
+          outcome.rowCount !== null ? `  → ${outcome.rowCount} sor` : '  → kész',
+        ) + c.dim(' · hozzáfűzve a kontextushoz'),
       );
     }
   }

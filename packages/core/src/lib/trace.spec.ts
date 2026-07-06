@@ -42,7 +42,7 @@ describe('Trace', () => {
       {
         content: '{"rowCount":1,"rows":[{"x":1}]}',
         isError: false,
-        executedSql: 'SELECT 1 LIMIT 50',
+        summary: 'SELECT 1 LIMIT 50',
         rowCount: 1,
       },
     );
@@ -61,7 +61,7 @@ describe('Trace', () => {
     expect(data.turns).toHaveLength(2);
     expect(data.turns[0]?.context.messages).toBe(1);
     expect(data.turns[1]?.context.messages).toBe(3);
-    expect(data.turns[0]?.toolCalls[0]?.guardedSql).toBe('SELECT 1 LIMIT 50');
+    expect(data.turns[0]?.toolCalls[0]?.summary).toBe('SELECT 1 LIMIT 50');
     expect(data.answer).toBe('kész');
   });
 
