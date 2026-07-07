@@ -1,0 +1,28 @@
+# Claude code review PR-okra — a HIVATALOS claude-code-action, "gyári" konfigurációval.
+# Nincs saját skill, nincs saját agent: csak egy prompt. (L1 a felhőben — 4. óra.)
+name: Claude Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review-old ezt a pull requestet magyarul. Fókusz: hibák, hiányzó
+            tesztek, a repo konvencióinak (docs/konvenciok.md) megsértése.
+            Rövid, tételes összefoglalót írj PR-kommentbe: probléma → fájl:sor → javaslat.

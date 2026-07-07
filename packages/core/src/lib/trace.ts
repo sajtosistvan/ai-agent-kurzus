@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import type Anthropic from '@anthropic-ai/sdk';
-import type { RunSqlOutcome } from './tools/index.js';
+import type { ModelMessage } from 'ai';
+import type { ToolOutcome } from './tools/tool-outcome.js';
 
 // Megfigyelhetőség: a futás közben épülő, kör-strukturált nyom. UGYANARRA az adatra két nézet:
 //  (1) élő, színes konzol — minden hívás ELŐTT kiírja a TELJES kontextust ("EZT küldjük"), hogy
@@ -71,7 +71,8 @@ export function traceLog(text: string): void {
 export interface ToolCall {
   name: string;
   input: unknown;
-  guardedSql: string | null;
+  /** A tool egysoros összegzése (pl. a guardolt SQL, vagy "UPSERT (created)"). */
+  summary: string | null;
   rowCount: number | null;
   isError: boolean;
   result: unknown; // a tool kimenete (sorok payloadja parse-olva, vagy a hibaszöveg)
@@ -136,16 +137,22 @@ export class Trace {
     appendWatch(s);
   }
 
+  /** Eddig rögzített körök száma — a hívó ebből számozza a következőt. */
+  get turnCount(): number {
+    return this.turns.length;
+  }
+
   /** HÍVÁS ELŐTT: kiírja a TELJES, lapított kontextust, amit elküldünk (system + a beszélgetés).
-   *  Minden körben újra — így szemmel látszik, ahogy ugyanaz a szöveg nő. */
+   *  Minden körben újra — így szemmel látszik, ahogy ugyanaz a szöveg nő. Az AI SDK-nál ezt a
+   *  `prepareStep` hook hívja: ott látjuk, MIT küld ki a framework az adott körben. */
   request(
     n: number,
     req: {
       model: string;
-      max_tokens: number;
+      maxOutputTokens: number;
       system: string;
-      tools: Anthropic.Tool[];
-      messages: Anthropic.MessageParam[];
+      toolNames: string[];
+      messages: ModelMessage[];
     },
   ): void {
     const grew =
@@ -158,12 +165,9 @@ export class Trace {
     this.line(
       c.dim('  model: ') +
         c.white(req.model) +
-        c.dim(` · max_tokens: ${req.max_tokens}`),
+        c.dim(` · maxOutputTokens: ${req.maxOutputTokens}`),
     );
-    this.line(
-      c.dim('  tools: ') +
-        c.white(`[${req.tools.map((t) => t.name).join(', ')}]`),
-    );
+    this.line(c.dim('  tools: ') + c.white(`[${req.toolNames.join(', ')}]`));
     this.line(c.dim('  system: ') + clip(req.system, 70));
     this.line(c.dim('  messages:'));
     for (const m of req.messages) {
@@ -173,59 +177,63 @@ export class Trace {
     }
   }
 
-  /** HÍVÁS UTÁN: a modell fordulója — stop_reason, a VALÓS elküldött tokenszám, a szöveg. */
-  modelTurn(n: number, response: Anthropic.Message): Turn {
-    const modelText = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n')
-      .trim();
+  /** HÍVÁS UTÁN: a modell fordulója — finishReason, a VALÓS elküldött tokenszám, a szöveg.
+   *  Az AI SDK-nál az `onStepFinish` hook hívja, a lezárt kör (step) adataival. */
+  modelTurn(
+    n: number,
+    step: {
+      finishReason: string | null;
+      text: string;
+      toolCalls: Array<{ toolName: string; input: unknown }>;
+      usage: { inputTokens?: number; outputTokens?: number };
+    },
+  ): Turn {
+    const modelText = step.text.trim();
+    const inputTokens = step.usage.inputTokens ?? 0;
     const turn: Turn = {
       n,
-      stopReason: response.stop_reason,
+      stopReason: step.finishReason,
       modelText,
       toolCalls: [],
       context: {
         messages: this.lastCount ?? 0,
-        inputTokens: response.usage.input_tokens,
+        inputTokens,
       },
       usage: {
-        in: response.usage.input_tokens,
-        out: response.usage.output_tokens,
+        in: inputTokens,
+        out: step.usage.outputTokens ?? 0,
       },
     };
     this.turns.push(turn);
     this.line(
       c.dim(
-        `↳ a modell válasza · stop_reason: ${response.stop_reason} · ${response.usage.input_tokens} token`,
+        `↳ a modell válasza · finishReason: ${step.finishReason} · ${inputTokens} token`,
       ),
     );
     // Köztes szöveg (a modell "gondolkodik" egy tool-hívás ELŐTT) — kiírjuk. A VÉGSŐ választ
     // viszont nem itt, hanem a finish() írja ki (✓ VÁLASZ), hogy ne duplikálódjon.
-    if (modelText && response.stop_reason === 'tool_use') {
+    if (modelText && step.finishReason === 'tool-calls') {
       this.line(c.white('  szöveg: ' + clip(modelText, 120)));
     }
     // A modell által generált tool-kérés(ek) — a paraméterekkel, amiket MAGA A MODELL írt.
-    for (const block of response.content) {
-      if (block.type === 'tool_use') {
-        const q =
-          (block.input as { query?: string } | null)?.query ??
-          JSON.stringify(block.input);
-        this.line(
-          c.yellow(`  tool-kérés: ${block.name}( `) +
-            c.cyan(clip(q, 90)) +
-            c.yellow(' )'),
-        );
-      }
+    for (const call of step.toolCalls) {
+      const q =
+        (call.input as { query?: string } | null)?.query ??
+        JSON.stringify(call.input);
+      this.line(
+        c.yellow(`  tool-kérés: ${call.toolName}( `) +
+          c.cyan(clip(q, 90)) +
+          c.yellow(' )'),
+      );
     }
     return turn;
   }
 
-  /** Egy lefuttatott function call: a kért SQL, a guardolt SQL, a sorszám / hiba. */
+  /** Egy lefuttatott function call: a tool egysoros összegzése (pl. a guardolt SQL) + sorszám / hiba. */
   toolStep(
     turn: Turn,
-    call: Anthropic.ToolUseBlock,
-    outcome: RunSqlOutcome,
+    call: { toolName: string; input: unknown },
+    outcome: ToolOutcome,
   ): void {
     let result: unknown = outcome.content;
     try {
@@ -234,31 +242,32 @@ export class Trace {
       // marad nyers szöveg (pl. hibaüzenet)
     }
     turn.toolCalls.push({
-      name: call.name,
+      name: call.toolName,
       input: call.input,
-      guardedSql: outcome.executedSql,
+      summary: outcome.summary,
       rowCount: outcome.rowCount,
       isError: outcome.isError,
       result,
     });
 
-    // A modell SQL-je gyakran többsoros — a konzolon egy sorba lapítjuk (a teljes,
-    // formázott SQL a JSON-nyomban marad).
+    // Az összegzés (pl. a modell SQL-je) gyakran többsoros — a konzolon egy sorba lapítjuk
+    // (a teljes, formázott változat a JSON-nyomban marad).
     const flat = (s: string): string => s.replace(/\s+/g, ' ').trim();
-    const sql = outcome.executedSql
-      ? flat(outcome.executedSql)
+    const summary = outcome.summary
+      ? flat(outcome.summary)
       : flat((call.input as { query?: string } | null)?.query ?? '');
     this.line('');
-    this.line(c.yellow(bar(`TOOL · ${call.name} (lefuttatjuk a DB-n)`)));
-    if (sql) {
-      this.line(c.dim('  SQL (guard után): ') + c.cyan(sql));
+    this.line(c.yellow(bar(`TOOL · ${call.toolName} (a MI kódunk fut, nem LLM)`)));
+    if (summary) {
+      this.line(c.dim('  futás: ') + c.cyan(summary));
     }
     if (outcome.isError) {
       this.line(c.red('  → hiba: ') + outcome.content);
     } else {
       this.line(
-        c.green(`  → ${outcome.rowCount ?? 0} sor`) +
-          c.dim(' · hozzáfűzve a kontextushoz'),
+        c.green(
+          outcome.rowCount !== null ? `  → ${outcome.rowCount} sor` : '  → kész',
+        ) + c.dim(' · hozzáfűzve a kontextushoz'),
       );
     }
   }
@@ -301,25 +310,31 @@ export class Trace {
   }
 }
 
-/** Egy üzenet egy vagy több lapított sorrá: [user]/[assistant]/[tool] + rövid tartalom. */
-function renderMessage(m: Anthropic.MessageParam): string[] {
+/** Egy üzenet egy vagy több lapított sorrá: [user]/[assistant]/[tool] + rövid tartalom.
+ *  Az AI SDK ModelMessage alakját lapítjuk: text / tool-call / tool-result részek. */
+function renderMessage(m: ModelMessage): string[] {
   if (typeof m.content === 'string') {
     return [`[${m.role}]   ${clip(m.content, 90)}`];
   }
   const lines: string[] = [];
-  for (const block of m.content) {
-    if (block.type === 'text') {
-      lines.push(`[${m.role}] ${clip(block.text, 90)}`);
-    } else if (block.type === 'tool_use') {
-      const q =
-        (block.input as { query?: string } | null)?.query ??
-        JSON.stringify(block.input);
-      lines.push(`[${m.role}] (⚙ ${block.name}: ${clip(q, 80)})`);
-    } else if (block.type === 'tool_result') {
+  for (const block of m.content as Array<Record<string, unknown>>) {
+    if (block['type'] === 'text') {
+      lines.push(`[${m.role}] ${clip(String(block['text'] ?? ''), 90)}`);
+    } else if (block['type'] === 'tool-call') {
+      const input = block['input'] as { query?: string } | null | undefined;
+      const q = input?.query ?? JSON.stringify(block['input']);
+      lines.push(`[${m.role}] (⚙ ${String(block['toolName'])}: ${clip(q, 80)})`);
+    } else if (block['type'] === 'tool-result') {
+      const output = block['output'] as
+        | { type?: string; value?: unknown }
+        | string
+        | undefined;
       const raw =
-        typeof block.content === 'string'
-          ? block.content
-          : JSON.stringify(block.content);
+        typeof output === 'string'
+          ? output
+          : typeof output?.value === 'string'
+            ? output.value
+            : JSON.stringify(output?.value ?? output);
       lines.push(`[tool]   ${clip(raw, 90)}`);
     }
   }

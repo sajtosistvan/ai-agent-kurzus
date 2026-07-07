@@ -19,7 +19,8 @@
     "name": "core"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.107.0",
+    "@ai-sdk/anthropic": "3.0.93",
+    "ai": "6.0.219",
     "pg": "^8.22.0",
     "tslib": "^2.3.0",
     "zod": "^4.4.3"

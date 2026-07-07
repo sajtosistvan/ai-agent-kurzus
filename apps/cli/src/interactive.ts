@@ -1,14 +1,36 @@
 import { createInterface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
-import { askAgent, type Message } from '@plantbase/core';
+import { askAgent, type AskResult, type Message } from '@plantbase/core';
 
 // Interaktív readline-hurok BESZÉLGETÉS-MEMÓRIÁVAL: a teljes üzenet-tömböt körről körre
 // továbbvisszük, így a követő kérdés ismeri az előzményt. A sorokat sorosan dolgozzuk fel
-// (egyszerre egy askAgent fut), így csővezetett bemenetnél sem fut össze két hívás.
+// (egyszerre egy hívás fut), így csővezetett bemenetnél sem fut össze két hívás.
+// Az `ask` paraméterrel ugyanez a hurok szolgálja ki a query- és az ingest-agentet is.
 
 const EXIT_WORDS = new Set(['exit', 'quit', 'kilép']);
 
-export function runInteractive(quiet: boolean): Promise<void> {
+type AskFn = (
+  input: string,
+  options: { history?: Message[]; print?: boolean },
+) => Promise<AskResult>;
+
+export interface InteractiveOptions {
+  quiet: boolean;
+  ask?: AskFn;
+  banner?: string;
+}
+
+export function runInteractive(
+  quietOrOptions: boolean | InteractiveOptions,
+): Promise<void> {
+  const opts: InteractiveOptions =
+    typeof quietOrOptions === 'boolean'
+      ? { quiet: quietOrOptions }
+      : quietOrOptions;
+  const quiet = opts.quiet;
+  const ask: AskFn = opts.ask ?? askAgent;
+  const banner =
+    opts.banner ?? 'Plantbase interaktív mód — kilépés: "exit" vagy Ctrl-D.';
   const rl = createInterface({ input: stdin, output: stdout, prompt: '> ' });
   const queue: string[] = [];
   let processing = false;
@@ -27,7 +49,7 @@ export function runInteractive(quiet: boolean): Promise<void> {
         break;
       }
       try {
-        const result = await askAgent(input, { history, print: !quiet });
+        const result = await ask(input, { history, print: !quiet });
         history = result.messages; // ← továbbvisszük az előzményt a következő körre
         if (quiet) {
           stdout.write(`${result.answer}\n`);
@@ -43,7 +65,7 @@ export function runInteractive(quiet: boolean): Promise<void> {
     processing = false;
   }
 
-  stdout.write('Plantbase interaktív mód — kilépés: "exit" vagy Ctrl-D.\n');
+  stdout.write(`${banner}\n`);
   rl.prompt();
 
   return new Promise<void>((resolve) => {
