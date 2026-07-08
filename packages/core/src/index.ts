@@ -23,6 +23,7 @@ export * from './lib/tools/run-sql/run-sql-tool.js';
 export * from './lib/tools/run-sql/sql-guard.js';
 export * from './lib/tools/run-sql/db-readonly.js';
 export * from './lib/tools/get-client-preferences/get-client-preferences-tool.js';
+export * from './lib/tools/delegate-to-ingest/delegate-to-ingest-tool.js';
 export * from './lib/tools/fetch-feed/fetch-feed-tool.js';
 export * from './lib/tools/fetch-feed/shopify-feed.js';
 export * from './lib/tools/upsert-product/upsert-product-tool.js';
