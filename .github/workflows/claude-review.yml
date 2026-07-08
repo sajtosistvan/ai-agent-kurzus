@@ -22,10 +22,16 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # classify_inline_comments (alap: true) a választ diff-sorokhoz kötött inline
+          # kommentként próbálja posztolni — ha nincs konkrét sorhoz köthető észrevétel
+          # (pl. triviális diff), NEM lesz komment. use_sticky_comment: true helyette egy
+          # konszolidált, mindig frissülő PR-kommentbe teszi az összefoglalót.
+          use_sticky_comment: true
           prompt: |
             Review-old ezt a pull requestet magyarul. Fókusz: hibák, hiányzó
             tesztek, a repo konvencióinak (docs/konvenciok.md) megsértése.
             Rövid, tételes összefoglalót írj PR-kommentbe: probléma → fájl:sor → javaslat.
+            Akkor is írj rövid összefoglaló kommentet, ha nem találtál problémát.
 
   # A TÉNYLEGES convention-audit subagentet futtatja (.claude/agents/convention-audit.md,
   # model: sonnet) — nem duplikáljuk a promptját, a top-level Claude a Task tool-lal
@@ -41,6 +47,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
           prompt: |
             Indítsd el a `convention-audit` subagentet (Task tool, subagent_type:
             "convention-audit" — lásd .claude/agents/convention-audit.md) ezen a pull
