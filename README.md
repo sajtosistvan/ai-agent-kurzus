@@ -164,3 +164,4 @@ A részletek a [`docs/`](docs/) mappában:
 - [`dev-workflow.md`](docs/dev-workflow.md) — git, hookok, dokumentáció
 - [`proposal-implementacio.md`](docs/proposal-implementacio.md) — a fázisolt implementációs terv
 
+test line 2
