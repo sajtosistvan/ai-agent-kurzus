@@ -8,7 +8,7 @@ import {
 import { runSqlTool } from '../../tools/run-sql/run-sql-tool.js';
 import { getClientPreferencesTool } from '../../tools/get-client-preferences/get-client-preferences-tool.js';
 import { delegateToIngestTool } from '../../tools/delegate-to-ingest/delegate-to-ingest-tool.js';
-import { CURRENT_ROLE, isAdmin, type UserRole } from '../../user-role/user-role.js';
+import { CURRENT_ROLE, type UserRole } from '../../user-role/user-role.js';
 
 // query-agent.ts — a KÉRDÉS-VÁLASZ agent (a termék "ask" oldala). READ-ONLY: természetes
 // nyelvű kérdésből SQL-t ír, lefuttatja, magyarul válaszol. Egy agent = prompt + toolok + loop:
@@ -37,7 +37,8 @@ export async function askAgent(
   }
 
   const role = options.role ?? CURRENT_ROLE;
-  const admin = isAdmin(role);
+  // Web deploy: admin delegálás ideiglenesen kikapcsolva, amíg a webes rétegben nincs role-választó UI.
+  const admin = false;
 
   return runAgentLoop(
     trimmed,

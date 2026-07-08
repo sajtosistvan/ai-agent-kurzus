@@ -58,9 +58,12 @@ products (
 </behavior>
 
 <tools>
-- fetchFeed({ source?, filter?, limit? }): élő webshop-feed (Shopify products.json) beolvasása. Forrás:
-  tropicalhome.hu (alap) vagy thesill.com. A visszaadott jelöltek ára már HUF; latin név, akciós ár,
-  cserépméret, tag-ek és rövid leírás is jön. Szűrj a filterrel egy konkrét termékre.
+- fetchFeed({ source?, filter?, limit? }): élő webshop-feed (Shopify products.json) beolvasása. A source
+  KIZÁRÓLAG enumból választható, SOHA ne találj ki vagy építs össze URL-t magadtól:
+    - "tropicalhome.hu" → https://tropicalhome.hu/products.json (alap, ha source nincs megadva)
+    - "thesill.com" → https://thesill.com/products.json
+  A visszaadott jelöltek ára már HUF; latin név, akciós ár, cserépméret, tag-ek és rövid leírás is jön.
+  Szűrj a filterrel egy konkrét termékre.
 - runSql(query): read-only SELECT a katalóguson — ezzel nézd meg a jelenlegi állapotot írás előtt.
 - upsertProduct(product): egy teljes termék létrehozása/frissítése latin név szerint. Minden mezőt adj meg.
 </tools>

@@ -1,5 +1,5 @@
 import {
-  generateText,
+  streamText,
   stepCountIs,
   type ModelMessage,
   type StepResult,
@@ -15,12 +15,17 @@ import type { ToolOutcome, ToolReporter } from '../tools/tool-outcome.js';
 //
 // A 2–3. órán KÉZZEL írtuk meg ugyanezt (prompt → hívás → stop_reason → tool → tool_result →
 // vissza) a nyers Anthropic SDK fölött — ezért pontosan tudjuk, mit csinál helyettünk az AI SDK:
-//   - a loopot a `generateText` pörgeti, amíg a modell toolt kér (finishReason: 'tool-calls'),
+//   - a loopot a `streamText` pörgeti, amíg a modell toolt kér (finishReason: 'tool-calls'),
 //   - a kör-limit a `stopWhen: stepCountIs(n)` (régen: MAX_TOOL_ITERATIONS for-ciklus),
 //   - a tool-futtatás a tool-definíciók `execute`-ja (régen: executeTool switch),
 //   - a kontextus-görgetést (üzenetek hozzáfűzése körről körre) az SDK végzi.
 // A TRANSZPARENCIA marad: a `prepareStep` hookban látjuk, MIT küldünk ki minden körben,
 // az `onStepFinish`-ben pedig, MI történt — a Trace ugyanazt a színes nyomot írja, mint eddig.
+//
+// STREAMING: a `generateText`-ről `streamText`-re váltottunk, hogy a végső válasz szövege
+// TOKENENKÉNT is elérhető legyen az `onTextDelta` callback-en át (ezt a szerver írja tovább a
+// böngészőnek). A hívó oldal (CLI) ezt nem adja meg — ott a viselkedés változatlan: a Trace a
+// lépések VÉGÉN íródik ki, nem tokenenként.
 
 export type Message = ModelMessage;
 
@@ -29,6 +34,8 @@ export interface AskOptions {
   history?: Message[];
   /** Élő, színes konzol-nyom. Alapból true; a CLI --quiet kapcsolóra false. */
   print?: boolean;
+  /** Ha meg van adva, a végső válasz szövegét TOKENENKÉNT is megkapja, ahogy generálódik. */
+  onTextDelta?: (delta: string) => void;
 }
 
 export interface AskResult {
@@ -97,7 +104,7 @@ export async function runAgentLoop(
   });
   const toolNames = Object.keys(tools);
 
-  const result = await generateText({
+  const result = streamText({
     model: anthropic(config.model),
     maxOutputTokens: agent.maxOutputTokens,
     system: agent.systemPrompt,
@@ -142,22 +149,53 @@ export async function runAgentLoop(
     },
   });
 
-  const answer = result.text.trim() !== '' ? result.text : agent.emptyAnswer;
+  // A fullStream fogyasztása HAJTJA a loopot (tool-hívásokkal együtt). Csak a text-delta
+  // darabokat adjuk tovább — a tool-hívások argumentumai NEM a felhasználónak szóló szöveg.
+  // Körönként (pl. "megnézem az adatbázist…" majd a végső válasz) ÚJ kör (start-step) nyílik;
+  // az id minden körben nullázódik (0-tól), ezért a kör-határt a start-step eseménnyel
+  // követjük: ha az ÉPP LEZÁRULT kör adott vissza szöveget, üres sort szúrunk be elé.
+  let firstStep = true;
+  let currentStepHasText = false;
+  for await (const part of result.fullStream) {
+    if (part.type === 'start-step') {
+      if (!firstStep && currentStepHasText) {
+        options.onTextDelta?.('\n\n');
+      }
+      firstStep = false;
+      currentStepHasText = false;
+      continue;
+    }
+    if (part.type !== 'text-delta') {
+      continue;
+    }
+    currentStepHasText = true;
+    options.onTextDelta?.(part.text);
+  }
+
+  const finalText = await result.text;
+  const answer = finalText.trim() !== '' ? finalText : agent.emptyAnswer;
+  // Ha nem generálódott szöveg (limit miatt üresen állt meg), a fallback szöveget is
+  // el kell juttatni a streamelt kliensnek — máskülönben egyetlen delta sem érkezett.
+  if (finalText.trim() === '') {
+    options.onTextDelta?.(answer);
+  }
 
   // A frissített beszélgetés: a kiinduló üzenetek + amit a futás generált (assistant + tool
   // üzenetek) — az interaktív mód ezt viszi tovább.
-  const updatedMessages: Message[] = [...messages, ...result.response.messages];
+  const response = await result.response;
+  const updatedMessages: Message[] = [...messages, ...response.messages];
 
+  const totalUsage = await result.totalUsage;
   const usage = {
-    inputTokens: result.totalUsage.inputTokens ?? 0,
-    outputTokens: result.totalUsage.outputTokens ?? 0,
+    inputTokens: totalUsage.inputTokens ?? 0,
+    outputTokens: totalUsage.outputTokens ?? 0,
   };
   const tracePath = trace.finish(answer, usage);
   return {
     answer,
     messages: updatedMessages,
     usage,
-    stopReason: result.finishReason,
+    stopReason: await result.finishReason,
     tracePath,
   };
 }

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import express from 'express';
 import cors from 'cors';
+import { convertToModelMessages, type UIMessage } from 'ai';
 import {
   askAgent,
   loadConfig,
@@ -19,8 +20,14 @@ import {
 // körről körre növekvő trace fut le, mint a CLI-ben (trace.ts). A böngésző csak a választ kapja.
 // Külön terminálban `tail -f logs/agent.log` ugyanúgy nézhető, mint a CLI-nél.
 //
-// STREAMING: NINCS. A /api/chat egyszer válaszol a teljes szöveggel (generateText). A streamre
-// váltás egy külön, tiszta lépés lesz (streamText a szerveren + useChat a kliensen).
+// KLIENS: a web app a Vercel AI SDK useChat hookját használja (TextStreamChatTransport), NEM sima
+// fetch-et. A useChat minden hívásnál a TELJES üzenet-előzményt (UIMessage[]) elküldi — ebből
+// vágjuk le az utolsó (új) user-üzenetet kérdésnek, a többit convertToModelMessages-szel alakítjuk
+// az askAgent `history` opciójává, így a beszélgetés a szerveren is folytatódik körről körre.
+//
+// STREAMING: a válasz TOKENENKÉNT megy ki (streamText a core-ban, res.write() itt) sima
+// szövegként (text/plain) — a TextStreamChatTransport ugyanezt a szöveg-folyamot olvassa be
+// darabonként a kliensen, és alakítja UI-szöveg-deltákká, ahogy megérkeznek.
 
 // Fail-fast: a kulcs/konfiguráció hiányát már indításkor, érthetően jelezzük.
 try {
@@ -40,22 +47,51 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Az UIMessage szöveg-részeiből (text parts) állítja össze a nyers kérdést-szöveget.
+function extractText(message: UIMessage): string {
+  return message.parts
+    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .map((part) => part.text)
+    .join('')
+    .trim();
+}
+
 app.post('/api/chat', async (req, res) => {
-  const message: unknown = req.body?.message;
-  const question = typeof message === 'string' ? message.trim() : '';
-  if (question === '') {
-    res.status(400).json({ error: 'Üres kérdést nem lehet feltenni.' });
+  const messages: unknown = req.body?.messages;
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).send('Üres beszélgetést nem lehet feltenni.');
     return;
   }
 
+  const uiMessages = messages as UIMessage[];
+  const lastMessage = uiMessages[uiMessages.length - 1];
+  const question = lastMessage?.role === 'user' ? extractText(lastMessage) : '';
+  if (question === '') {
+    res.status(400).send('Üres kérdést nem lehet feltenni.');
+    return;
+  }
+
+  res.type('text/plain');
   try {
+    // A korábbi körök (useChat mindig a teljes előzményt küldi) → askAgent history-ja.
+    const history = await convertToModelMessages(uiMessages.slice(0, -1));
     // print: true → a teljes trace a szerver konzolján, mint a CLI-ben.
-    const result = await askAgent(question, { print: true });
-    res.json({ answer: result.answer });
+    // onTextDelta → minden tokent azonnal kiírunk, a TextStreamChatTransport ezt olvassa be.
+    await askAgent(question, {
+      print: true,
+      history,
+      onTextDelta: (delta) => res.write(delta),
+    });
+    res.end();
   } catch (error: unknown) {
     const messageText = error instanceof Error ? error.message : String(error);
     console.error(`plantbase szerver hiba: ${messageText}`);
-    res.status(500).json({ error: messageText });
+    // Ha már küldtünk streamelt darabot, a válaszkód/fejléc nem módosítható — csak lezárjuk.
+    if (res.headersSent) {
+      res.end();
+    } else {
+      res.status(500).send(messageText);
+    }
   }
 });
 
