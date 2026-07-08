@@ -22,10 +22,13 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # classify_inline_comments (alap: true) a választ diff-sorokhoz kötött inline
-          # kommentként próbálja posztolni — ha nincs konkrét sorhoz köthető észrevétel
-          # (pl. triviális diff), NEM lesz komment. use_sticky_comment: true helyette egy
-          # konszolidált, mindig frissülő PR-kommentbe teszi az összefoglalót.
+          # Alapból (pull_request esemény → "agent mode") Claude-nak MAGÁNAK kellene
+          # kommentelő tool-t hívnia — de ahhoz nincs jogosultsága, ezért néma marad
+          # (permission_denials_count > 0, 0 PR-komment). track_progress: true "tag
+          # mode"-ra kényszerít, ahol a WRAPPER action posztolja/frissíti a követő-
+          # kommentet a végső válasszal — ez tényleg mindig lát PR-kommentet.
+          # use_sticky_comment: true egyetlen, mindig frissülő kommentbe konszolidálja.
+          track_progress: true
           use_sticky_comment: true
           prompt: |
             Review-old ezt a pull requestet magyarul. Fókusz: hibák, hiányzó
@@ -47,6 +50,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
           use_sticky_comment: true
           prompt: |
             Indítsd el a `convention-audit` subagentet (Task tool, subagent_type:
