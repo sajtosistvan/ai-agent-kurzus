@@ -29,6 +29,9 @@ export * from './lib/tools/upsert-product/upsert-product-tool.js';
 export * from './lib/tools/upsert-product/product-schema.js';
 export * from './lib/tools/upsert-product/db-readwrite.js';
 
+// Ki beszél az agenttel: szerep-alapú képesség-kapcsolás (customer / admin)
+export * from './lib/user-role/user-role.js';
+
 // Megfigyelhetőség + konfiguráció
 export * from './lib/trace.js';
 export * from './lib/config.js';
