@@ -13,6 +13,7 @@
     "cli:build": "nx build cli",
     "cli": "tsx --conditions=@plantbase/source apps/cli/src/main.ts",
     "server": "tsx --conditions=@plantbase/source apps/server/src/main.ts",
+    "web": "nx dev web",
     "db:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=packages/db/prisma/schema.prisma",
     "db:reset": "prisma migrate reset --schema=packages/db/prisma/schema.prisma",
