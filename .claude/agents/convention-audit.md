@@ -1,7 +1,7 @@
 ---
 name: convention-audit
 description: A kódot a docs/ddd/ domain-modellhez és a docs/konvenciok.md-hez méri. Read-only, riportot ír.
-model: haiku
+model: sonnet
 tools:
   - Read
   - Grep

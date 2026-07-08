@@ -27,9 +27,10 @@ jobs:
             tesztek, a repo konvencióinak (docs/konvenciok.md) megsértése.
             Rövid, tételes összefoglalót írj PR-kommentbe: probléma → fájl:sor → javaslat.
 
-  # A convention-audit subagent (.claude/agents/convention-audit.md) promptja CI-ban: a
-  # kódot a docs/ddd/ domain-modellhez és a docs/konvenciok.md-hez méri. MINDIG kommentel —
-  # akkor is, ha nincs találat — hogy a PR-on lásd: az audit lefutott és tiszta.
+  # A TÉNYLEGES convention-audit subagentet futtatja (.claude/agents/convention-audit.md,
+  # model: sonnet) — nem duplikáljuk a promptját, a top-level Claude a Task tool-lal
+  # delegál rá. MINDIG kommentel — akkor is, ha nincs találat — hogy a PR-on lásd:
+  # az audit lefutott és tiszta.
   convention-audit:
     runs-on: ubuntu-latest
     steps:
@@ -41,14 +42,16 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Konvenció-auditor vagy. Vesd össze a PR-ban módosított kódot két
-            igazságforrással: `docs/ddd/model.md` + `docs/ddd/glossary.md` (domain-modell,
-            ubiquitous language) és `docs/konvenciok.md` (TS coding conventions: naming,
-            típusszigor, hibakezelés, immutabilitás, fájlszervezés, naplózás, biztonság).
-            NEM módosítod a kódot, csak olvasol.
+            Indítsd el a `convention-audit` subagentet (Task tool, subagent_type:
+            "convention-audit" — lásd .claude/agents/convention-audit.md) ezen a pull
+            requesten. A subagent read-only riportot ír a docs/ddd/ domain-modell és a
+            docs/konvenciok.md alapján. NE végezd el te magad az auditot, a subagent
+            eredményét használd fel.
 
-            Írj PR-kommentet magyarul, FÜGGETLENÜL az eredménytől:
-            - Ha találsz eltérést: priorizált (CRITICAL/HIGH/MEDIUM/LOW) lista,
-              minden tételnél fájl:sor hivatkozás és javaslat, végén rövid összegzés.
-            - Ha NINCS találat: írj egy rövid "✅ Konvenció-audit: nincs eltérés" kommentet,
-              1-2 mondatban, mit néztél át — hogy a PR-on látszódjon, hogy az audit lefutott.
+            A subagent riportja alapján írj PR-kommentet magyarul, FÜGGETLENÜL az
+            eredménytől:
+            - Ha van találat: a subagent priorizált (CRITICAL/HIGH/MEDIUM/LOW) listáját
+              tedd a kommentbe, fájl:sor hivatkozásokkal és javaslatokkal.
+            - Ha NINCS találat: írj egy rövid "✅ Konvenció-audit: nincs eltérés"
+              kommentet, 1-2 mondatban, mit nézett át a subagent — hogy a PR-on
+              látszódjon, hogy az audit lefutott.
