@@ -55,7 +55,7 @@ export default function App() {
       <MessageScrollerProvider autoScroll>
         <MessageScroller className="flex-1">
           <MessageScrollerViewport>
-            <MessageScrollerContent className="space-y-3">
+            <MessageScrollerContent>
               {messages.length === 0 && (
                 <p className="text-muted-foreground text-sm">
                   Kérdezz a katalógusról — pl. „mutass 3 pet-safe növényt raktáron, 5000
