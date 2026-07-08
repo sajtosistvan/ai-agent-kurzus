@@ -57,14 +57,21 @@ export const fetchFeedTool = (report?: ToolReporter) =>
     description:
       'Beolvassa egy webshop élő termék-feedjét (Shopify products.json) és normalizált termék-jelölteket ' +
       'ad vissza: latin név, ár (már HUF-ra váltva), akciós ár, cserépméret, tag-ek, rövid leírás. ' +
-      'Forrás: tropicalhome.hu (alap) vagy thesill.com. Szűrj a filter paraméterrel egy konkrét termékre ' +
-      '(pl. "monstera mint"), hogy ne a teljes feed jöjjön vissza. A kapott adatból állítsd össze a ' +
-      'magyar termék-mezőket, majd upsertProduct-tal írd be.',
+      'A forrás a "source" enumból választandó — NE találd ki és NE állíts össze URL-t magadtól, a tool ' +
+      'a source alapján maga építi fel a helyes feed-URL-t: ' +
+      'tropicalhome.hu → https://tropicalhome.hu/products.json (alap), ' +
+      'thesill.com → https://thesill.com/products.json. ' +
+      'Szűrj a filter paraméterrel egy konkrét termékre (pl. "monstera mint"), hogy ne a teljes feed ' +
+      'jöjjön vissza. A kapott adatból állítsd össze a magyar termék-mezőket, majd upsertProduct-tal írd be.',
     inputSchema: z.object({
       source: z
         .enum(['tropicalhome.hu', 'thesill.com'])
         .optional()
-        .describe('A feed forrása. Alap: tropicalhome.hu.'),
+        .describe(
+          'A feed forrása — pontosan ez a két érték választható, más nem: ' +
+            '"tropicalhome.hu" (feed: https://tropicalhome.hu/products.json, ez az alap, ha nincs megadva) ' +
+            'vagy "thesill.com" (feed: https://thesill.com/products.json).',
+        ),
       filter: z
         .string()
         .optional()

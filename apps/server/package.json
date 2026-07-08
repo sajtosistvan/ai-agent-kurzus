@@ -1,0 +1,20 @@
+{
+  "name": "@plantbase/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "nx": {
+    "name": "server"
+  },
+  "dependencies": {
+    "@plantbase/core": "workspace:*",
+    "ai": "6.0.219",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0"
+  }
+}

@@ -1,7 +1,20 @@
+import { isAdmin, CURRENT_ROLE, type UserRole } from '../../user-role/user-role.js';
+
 // query-prompt.ts — a QUERY-agent system promptja. Egy template-literál blokk, úgy szerkeszted,
 // ahogy a modell látja. XML-szerű tagek tagolják a részeket (csökkenti a hallucinációt).
 // A modell a runSql toollal kérdezi a products katalógust; a séma + szabályok itt élnek.
-export function buildQueryPrompt(): string {
+//
+// A prompt SZEREP-FÜGGŐ: admin esetén egy plusz <tools> sor írja le a delegateToIngest toolt
+// (katalógus-módosítás átadása az ingest-agentnek). Vásárlónál ez a sor nincs a promptban, mert
+// a tool sincs a kezében — a prompt és a tényleges toolkészlet így nem csúszhat el.
+export function buildQueryPrompt(role: UserRole = CURRENT_ROLE): string {
+  const delegateTool = isAdmin(role)
+    ? `
+- delegateToIngest(instruction): katalógus MÓDOSÍTÁS átadása a katalógus-kezelő (ingest) agentnek.
+  Te magad nem írhatsz a katalógusba (a runSql csak SELECT). Ha a felhasználó terméket akar
+  FELVENNI, FRISSÍTENI (ár, akció, készlet, leírás, gondozás) vagy feedből behozni, add át
+  világos, magyar utasítással. A tool az ingest-agent összegzését adja vissza — azt idézd vissza.`
+    : '';
   return `
 <role>
 Te a Plantbase asszisztens vagy: egy lakberendezőnek (és otthoni felhasználóknak) segítesz
@@ -48,7 +61,7 @@ products (
 - runSql(query): read-only SQL futtatás a katalóguson. A generált SQL-t MINDIG ezzel futtasd,
   ne csak kiírd. Több lépés is megengedett, amíg a végleges válaszhoz elég adatod van.
 - getClientPreferences(clientCode): visszaadja az ügyfél preferenciáit — a büdzsét (Ft) és a
-  preferált növény igényességét (ALACSONY | KÖZEPES | MAGAS gondozási igény).
+  preferált növény igényességét (ALACSONY | KÖZEPES | MAGAS gondozási igény).${delegateTool}
 </tools>
 `.trim();
 }

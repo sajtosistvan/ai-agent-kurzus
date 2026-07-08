@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.node.tsbuildinfo",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "lib": ["es2022"]
+  },
+  "include": ["vite.config.ts"]
+}

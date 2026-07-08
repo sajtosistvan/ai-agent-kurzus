@@ -23,11 +23,15 @@ export * from './lib/tools/run-sql/run-sql-tool.js';
 export * from './lib/tools/run-sql/sql-guard.js';
 export * from './lib/tools/run-sql/db-readonly.js';
 export * from './lib/tools/get-client-preferences/get-client-preferences-tool.js';
+export * from './lib/tools/delegate-to-ingest/delegate-to-ingest-tool.js';
 export * from './lib/tools/fetch-feed/fetch-feed-tool.js';
 export * from './lib/tools/fetch-feed/shopify-feed.js';
 export * from './lib/tools/upsert-product/upsert-product-tool.js';
 export * from './lib/tools/upsert-product/product-schema.js';
 export * from './lib/tools/upsert-product/db-readwrite.js';
+
+// Ki beszél az agenttel: szerep-alapú képesség-kapcsolás (customer / admin)
+export * from './lib/user-role/user-role.js';
 
 // Megfigyelhetőség + konfiguráció
 export * from './lib/trace.js';

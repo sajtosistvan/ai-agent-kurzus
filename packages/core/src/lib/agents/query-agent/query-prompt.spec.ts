@@ -20,4 +20,9 @@ describe('buildQueryPrompt', () => {
   it('should reference the runSql tool', () => {
     expect(prompt).toContain('runSql');
   });
+
+  it('describes the delegateToIngest tool only for admins', () => {
+    expect(buildQueryPrompt('admin')).toContain('delegateToIngest');
+    expect(buildQueryPrompt('customer')).not.toContain('delegateToIngest');
+  });
 });
