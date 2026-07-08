@@ -166,3 +166,4 @@ A részletek a [`docs/`](docs/) mappában:
 
 test line 2
 test line 3
+test line 4 (final check)
