@@ -165,3 +165,4 @@ A részletek a [`docs/`](docs/) mappában:
 - [`proposal-implementacio.md`](docs/proposal-implementacio.md) — a fázisolt implementációs terv
 
 test line 2
+test line 3
