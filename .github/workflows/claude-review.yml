@@ -26,3 +26,29 @@ jobs:
             Review-old ezt a pull requestet magyarul. Fókusz: hibák, hiányzó
             tesztek, a repo konvencióinak (docs/konvenciok.md) megsértése.
             Rövid, tételes összefoglalót írj PR-kommentbe: probléma → fájl:sor → javaslat.
+
+  # A convention-audit subagent (.claude/agents/convention-audit.md) promptja CI-ban: a
+  # kódot a docs/ddd/ domain-modellhez és a docs/konvenciok.md-hez méri. MINDIG kommentel —
+  # akkor is, ha nincs találat — hogy a PR-on lásd: az audit lefutott és tiszta.
+  convention-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Konvenció-auditor vagy. Vesd össze a PR-ban módosított kódot két
+            igazságforrással: `docs/ddd/model.md` + `docs/ddd/glossary.md` (domain-modell,
+            ubiquitous language) és `docs/konvenciok.md` (TS coding conventions: naming,
+            típusszigor, hibakezelés, immutabilitás, fájlszervezés, naplózás, biztonság).
+            NEM módosítod a kódot, csak olvasol.
+
+            Írj PR-kommentet magyarul, FÜGGETLENÜL az eredménytől:
+            - Ha találsz eltérést: priorizált (CRITICAL/HIGH/MEDIUM/LOW) lista,
+              minden tételnél fájl:sor hivatkozás és javaslat, végén rövid összegzés.
+            - Ha NINCS találat: írj egy rövid "✅ Konvenció-audit: nincs eltérés" kommentet,
+              1-2 mondatban, mit néztél át — hogy a PR-on látszódjon, hogy az audit lefutott.
