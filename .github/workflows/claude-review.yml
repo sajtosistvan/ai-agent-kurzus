@@ -25,11 +25,15 @@ jobs:
           # Alapból (pull_request esemény → "agent mode") Claude-nak MAGÁNAK kellene
           # kommentelő tool-t hívnia — de ahhoz nincs jogosultsága, ezért néma marad
           # (permission_denials_count > 0, 0 PR-komment). track_progress: true "tag
-          # mode"-ra kényszerít, ahol a WRAPPER action posztolja/frissíti a követő-
-          # kommentet a végső válasszal — ez tényleg mindig lát PR-kommentet.
-          # use_sticky_comment: true egyetlen, mindig frissülő kommentbe konszolidálja.
+          # mode"-ra kényszerít, ahol a WRAPPER action posztolja/frissíti a job SAJÁT
+          # követő-kommentjét a végső válasszal.
+          # FONTOS: use_sticky_comment: true NEM job-onkénti kommentet jelent, hanem
+          # PR-szinten EGYETLEN közös kommentet keres/frissít — mivel ebben a workflow-ban
+          # két job (claude-review + convention-audit) fut ugyanazon a PR-on, versenyeztek
+          # ugyanazon a kommenten, és a később végző felülírta a korábbit. Ezért itt NEM
+          # használjuk — track_progress önmagában is job-onként külön, mindig posztolt
+          # követő-kommentet ad.
           track_progress: true
-          use_sticky_comment: true
           prompt: |
             Review-old ezt a pull requestet magyarul. Fókusz: hibák, hiányzó
             tesztek, a repo konvencióinak (docs/konvenciok.md) megsértése.
@@ -51,7 +55,6 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
-          use_sticky_comment: true
           prompt: |
             Indítsd el a `convention-audit` subagentet (Task tool, subagent_type:
             "convention-audit" — lásd .claude/agents/convention-audit.md) ezen a pull
