@@ -6,6 +6,14 @@ import remarkGfm from 'remark-gfm';
 import { Leaf, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@/components/ui/message-scroller';
 
 // App.tsx — a Vercel AI SDK useChat hookja hajtja, NEM sima fetch. A TextStreamChatTransport a
 // legkisebb protokoll: a szerver egy darab sima szöveget (text/plain) küld vissza, a hook ezt
@@ -44,36 +52,43 @@ export default function App() {
         </span>
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto">
-        {messages.length === 0 && (
-          <p className="text-muted-foreground text-sm">
-            Kérdezz a katalógusról — pl. „mutass 3 pet-safe növényt raktáron, 5000
-            Ft alatt”.
-          </p>
-        )}
-        {messages.map((m) => {
-          const text = m.parts
-            .filter((part) => part.type === 'text')
-            .map((part) => part.text)
-            .join('');
-          return (
-            <div key={m.id} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-              {m.role === 'user' ? (
-                <span className="inline-block max-w-[85%] whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-left text-sm text-primary-foreground">
-                  {text}
-                </span>
-              ) : (
-                <div className="prose prose-sm prose-neutral inline-block max-w-[85%] rounded-lg bg-muted px-3 py-2 text-left prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-                </div>
+      <MessageScrollerProvider autoScroll>
+        <MessageScroller className="flex-1">
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="space-y-3">
+              {messages.length === 0 && (
+                <p className="text-muted-foreground text-sm">
+                  Kérdezz a katalógusról — pl. „mutass 3 pet-safe növényt raktáron, 5000
+                  Ft alatt”.
+                </p>
               )}
-            </div>
-          );
-        })}
-        {loading && (
-          <p className="text-muted-foreground text-sm">gondolkodik…</p>
-        )}
-      </div>
+              {messages.map((m) => {
+                const text = m.parts
+                  .filter((part) => part.type === 'text')
+                  .map((part) => part.text)
+                  .join('');
+                return (
+                  <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === 'user'}>
+                    <div className={m.role === 'user' ? 'text-right' : 'text-left'}>
+                      {m.role === 'user' ? (
+                        <span className="inline-block max-w-[85%] whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-left text-sm text-primary-foreground">
+                          {text}
+                        </span>
+                      ) : (
+                        <div className="prose prose-sm prose-neutral inline-block max-w-[85%] rounded-lg bg-muted px-3 py-2 text-left prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  </MessageScrollerItem>
+                );
+              })}
+              {loading && <p className="text-muted-foreground text-sm">gondolkodik…</p>}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
 
       <form
         className="flex gap-2 border-t pt-3"
