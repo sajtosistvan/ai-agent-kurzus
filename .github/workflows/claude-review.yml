@@ -53,12 +53,18 @@ jobs:
             Rövid, tételes összefoglalót írj PR-kommentbe: probléma → fájl:sor → javaslat.
             Akkor is írj rövid összefoglaló kommentet, ha nem találtál problémát.
 
-  # A convention-audit agent futtatása (.claude/agents/convention-audit.md, model:
-  # sonnet). A `--agent` flaggel a session ELEVE az agentként fut — nem a top-level
-  # Claude delegál Task tool-lal, így egy LLM-kör megspórolódik, és determinisztikus,
-  # hogy tényleg az agent (a saját szűkített tool-készletével) auditál. A PR-kommentet
-  # itt is a wrapper posztolja a végső válaszból (track_progress). MINDIG kommentel —
-  # akkor is, ha nincs találat — hogy a PR-on lásd: az audit lefutott és tiszta.
+  # A TÉNYLEGES convention-audit subagentet futtatja (.claude/agents/convention-audit.md,
+  # model: sonnet) — nem duplikáljuk a promptját, a top-level Claude a Task tool-lal
+  # delegál rá. MINDIG kommentel — akkor is, ha nincs találat — hogy a PR-on lásd:
+  # az audit lefutott és tiszta.
+  #
+  # MIÉRT NEM `claude_args: --agent convention-audit`? Kipróbáltuk (PR #7→#8): a session
+  # ilyenkor ELEVE az agentként fut, de a track_progress tag-mód azt várja, hogy a session
+  # maga kezelje a PR-kommentet az action MCP-tooljaival — az agent szűkített (read-only:
+  # Read/Grep/Glob/Write) tool-készlete ehhez nem fér hozzá, ezért 2 kör után kiszállt
+  # ("I'll analyze this and get back to you."), audit nélkül. A Task-delegálásnál a
+  # top-level Claude (teljes tool-készlettel) viszi a GitHub-oldalt, és csak az auditot
+  # adja az agentnek — CLI-ben a --agent a best practice, Actions alatt ez.
   convention-audit:
     # Draft PR-on nem futunk — ugyanaz, mint a claude-review jobnál.
     if: ${{ !github.event.pull_request.draft }}
@@ -72,16 +78,17 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
-          claude_args: --agent convention-audit
           prompt: |
-            Auditáld ezt a pull requestet a saját definíciód szerint (docs/ddd/
-            domain-modell + docs/konvenciok.md). Csak a PR-ban változott fájlokra
-            fókuszálj.
+            Indítsd el a `convention-audit` subagentet (Task tool, subagent_type:
+            "convention-audit" — lásd .claude/agents/convention-audit.md) ezen a pull
+            requesten. A subagent read-only riportot ír a docs/ddd/ domain-modell és a
+            docs/konvenciok.md alapján. NE végezd el te magad az auditot, a subagent
+            eredményét használd fel.
 
-            A VÉGSŐ VÁLASZOD kerül PR-kommentbe, ezért magyarul írd, és FÜGGETLENÜL
-            az eredménytől add meg:
-            - Ha van találat: a priorizált (CRITICAL/HIGH/MEDIUM/LOW) lista,
-              fájl:sor hivatkozásokkal és javaslatokkal.
-            - Ha NINCS találat: rövid "✅ Konvenció-audit: nincs eltérés" összefoglaló,
-              1-2 mondatban, mit néztél át — hogy a PR-on látszódjon, hogy az audit
-              lefutott.
+            A subagent riportja alapján írj PR-kommentet magyarul, FÜGGETLENÜL az
+            eredménytől:
+            - Ha van találat: a subagent priorizált (CRITICAL/HIGH/MEDIUM/LOW) listáját
+              tedd a kommentbe, fájl:sor hivatkozásokkal és javaslatokkal.
+            - Ha NINCS találat: írj egy rövid "✅ Konvenció-audit: nincs eltérés"
+              kommentet, 1-2 mondatban, mit nézett át a subagent — hogy a PR-on
+              látszódjon, hogy az audit lefutott.
