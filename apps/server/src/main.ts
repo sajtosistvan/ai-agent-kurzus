@@ -74,18 +74,19 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  res.type('text/plain');
   try {
     // A korábbi körök (useChat mindig a teljes előzményt küldi) → askAgent history-ja.
     const history = await convertToModelMessages(uiMessages.slice(0, -1));
     // print: true → a teljes trace a szerver konzolján, mint a CLI-ben.
-    // onTextDelta → minden tokent azonnal kiírunk, a TextStreamChatTransport ezt olvassa be.
+    //
+    // onStream → az AI SDK ÜZENET-streamje megy ki (nem sima szöveg): a böngésző így nemcsak a
+    // válasz betűit kapja meg, hanem a TOOL-HÍVÁSOKAT és a TOOL-EREDMÉNYEKET is, típusos részekként
+    // (`tool-runSql`, `tool-searchKnowledge`). Ebből rajzol a kliens kártyát — lásd apps/web/App.tsx.
     await askAgent(question, {
       print: true,
       history,
-      onTextDelta: (delta) => res.write(delta),
+      onStream: (result) => result.pipeUIMessageStreamToResponse(res),
     });
-    res.end();
   } catch (error: unknown) {
     const messageText = error instanceof Error ? error.message : String(error);
     console.error(`plantbase szerver hiba: ${messageText}`);
