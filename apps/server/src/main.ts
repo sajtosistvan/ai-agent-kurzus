@@ -11,6 +11,7 @@ import {
   closeReadWritePool,
   setWatchLog,
 } from '@plantbase/core';
+import { debugKnowledgeRouter } from './debug-knowledge.js';
 
 // server/main.ts — VÉKONY HTTP-réteg a core agent fölött. A böngészőből érkező kérdés PONTOSAN
 // ugyanazon az úton megy, mint a CLI-ben: askAgent → a Vercel AI SDK agent-loop. A `@plantbase/core`
@@ -94,6 +95,9 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 });
+
+// Debug-végpontok: a RAG belseje (dokumentumok, chunkok, nyers vektorkeresés). Lásd debug-knowledge.ts.
+app.use('/debug/knowledge', debugKnowledgeRouter);
 
 const port = Number(process.env['PORT'] ?? 3001);
 const server = app.listen(port, () => {

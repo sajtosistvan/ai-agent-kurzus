@@ -6,6 +6,7 @@ import {
   type AskResult,
 } from '../agent-loop.js';
 import { runSqlTool } from '../../tools/run-sql/run-sql-tool.js';
+import { searchKnowledgeTool } from '../../tools/search-knowledge/search-knowledge-tool.js';
 import { getClientPreferencesTool } from '../../tools/get-client-preferences/get-client-preferences-tool.js';
 import { delegateToIngestTool } from '../../tools/delegate-to-ingest/delegate-to-ingest-tool.js';
 import { CURRENT_ROLE, type UserRole } from '../../user-role/user-role.js';
@@ -46,6 +47,8 @@ export async function askAgent(
       systemPrompt: buildQueryPrompt(role),
       buildTools: (report): ToolSet => ({
         runSql: runSqlTool(report),
+        // A tudás-oldal: szöveges gondozási cikkek (RAG). A párja a runSql — a modell választ.
+        searchKnowledge: searchKnowledgeTool(report),
         getClientPreferences: getClientPreferencesTool(report),
         // Admin szerep → a MÁSIK agent tool-ként. Vásárlónál ez a kulcs nincs az objektumban.
         ...(admin

@@ -30,6 +30,16 @@ export * from './lib/tools/upsert-product/upsert-product-tool.js';
 export * from './lib/tools/upsert-product/product-schema.js';
 export * from './lib/tools/upsert-product/db-readwrite.js';
 
+export * from './lib/tools/search-knowledge/search-knowledge-tool.js';
+
+// RAG — a tudás-oldal: darabolás, vektorizálás, vektor-tároló, keresés (+ rerank, HyDE)
+export * from './lib/rag/chunk.js';
+export * from './lib/rag/embed.js';
+export * from './lib/rag/knowledge-store.js';
+export * from './lib/rag/retrieve.js';
+export * from './lib/rag/rerank.js';
+export * from './lib/rag/hyde.js';
+
 // Ki beszél az agenttel: szerep-alapú képesség-kapcsolás (customer / admin)
 export * from './lib/user-role/user-role.js';
 

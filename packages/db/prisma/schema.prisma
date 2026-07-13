@@ -3,13 +3,34 @@
 // READ-ONLY kapcsolaton fut (architektura.md 2. pont). A kliens a libbe generálódik (6. pont).
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/client"
+  provider        = "prisma-client-js"
+  output          = "../generated/client"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  // pgvector: ettől lesz a Postgresből vektor-adatbázis. Egy bővítmény, nem egy új rendszer.
+  extensions = [vector]
+}
+
+// knowledge_chunks — a TUDÁSBÁZIS. Egy sor = egy chunk (a cikk egy darabja) + a vektora.
+// A products tábla a TÉNYEKET tárolja (ár, készlet), ez a tábla a SZÖVEGES TUDÁST.
+// Az `embedding` típusát a Prisma nem ismeri (Unsupported) — nem is baj: a vektorkeresés
+// nyers SQL-ben történik (knowledge-store.ts), a Prisma csak a táblát hozza létre.
+model KnowledgeChunk {
+  id         Int                          @id @default(autoincrement())
+  source     String // a cikk URL-je — EZT idézi vissza az agent (grounding)
+  title      String
+  category   String
+  chunkIndex Int                          @map("chunk_index")
+  content    String // maga a darab szövege — ezt kapja a modell
+  embedding  Unsupported("vector(1536)")? // 1536 szám: a darab jelentése
+  createdAt  DateTime                     @default(now()) @map("created_at")
+
+  @@index([source])
+  @@map("knowledge_chunks")
 }
 
 // products katalógus — a mezők camelCase-ek, az oszlopok snake_case-ek (@map), a tábla "products"
