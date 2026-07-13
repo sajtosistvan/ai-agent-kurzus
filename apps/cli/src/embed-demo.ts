@@ -8,16 +8,35 @@ import { embedBatch } from '@plantbase/core';
 // számokat vetítünk ki, hanem azt, amit a text-embedding-3-small tényleg mond.
 
 const SENTENCES = [
+  // ── ugyanaz a kérdés, más szavakkal (ezeknek KÖZEL kell lenniük egymáshoz) ──
   'my monstera leaves are turning yellow',
   'leaves turning yellow on my plant',
   'why is my plant yellowing?',
+  'sárgulnak a növényem levelei', // MAGYARUL — a modell többnyelvű: a jelentés köti össze, nem a szó
+  // ── rokon téma: öntözés ──
   'overwatering causes root rot',
   'how often should I water my fern?',
+  'the soil is bone dry and the leaves are crispy',
+  // ── rokon téma: kártevők ──
   'fungus gnats in the soil',
   'spider mites on the underside of leaves',
+  'sticky residue on leaves from mealybugs',
+  // ── rokon téma: fény és elhelyezés ──
+  'best plants for a dark bathroom',
+  'my plant is leggy and stretching toward the window',
+  // ── más művelet ──
   'repotting a root-bound plant',
+  'how to propagate a pothos cutting',
+  // ── LAKBERENDEZÉS (ők a célcsoport): tér, stílus, méret, elhelyezés ──
+  'which plants work best in a minimalist living room?',
+  'tall statement plant for an empty corner',
+  'low-maintenance plants for a client office lobby',
+  'plants that look good in a north-facing room',
+  'milyen növény illik egy skandináv nappaliba?', // magyarul — a célcsoport így kérdez
+  // ── teljesen más világ: bolti / logisztikai szöveg ──
   'gift card and return policy',
   'free shipping over $75',
+  'do you ship to Hungary?',
 ];
 
 /** Koszinusz-távolság: 1 - cos(a, b). 0 = azonos jelentés, 1 = semmi köze. */

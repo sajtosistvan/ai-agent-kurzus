@@ -67,20 +67,28 @@ export async function executeSearchKnowledge(
   }
 }
 
+// A modellnek szóló szövegek EGY BLOKKBAN, template literálként — nem darabolva, nem ' + '-szal
+// összefűzve. Így úgy olvasod és szerkeszted, ahogy a modell látja (ugyanez az elv a promptoknál).
+const DESCRIPTION = `
+Keres a bolt gondozási tudásbázisában: növénygondozási cikkek, kártevők, betegségek,
+öntözés, fény, átültetés, évszakos teendők.
+
+EZT használd minden "hogyan / miért / mit tegyek" jellegű kérdésnél.
+A katalógus TÉNYEIHEZ (ár, készlet, méret) ne ezt használd, hanem a runSql-t.
+
+A találatok forrás-URL-t is tartalmaznak — a válaszban hivatkozz rájuk.
+`.trim();
+
+const QUESTION_PARAM = `
+A felhasználó kérdése, természetes nyelven, ahogy elhangzott (ne alakítsd kulcsszavakká).
+`.trim();
+
 /** A modell-felé eső tool-definíció. A LEÍRÁS tanítja meg a modellt, mikor nyúljon ide. */
 export const searchKnowledgeTool = (report?: ToolReporter) =>
   tool({
-    description:
-      'Keres a bolt gondozási tudásbázisában (növénygondozási cikkek, kártevők, betegségek, ' +
-      'öntözés, fény, átültetés, évszakos teendők). EZT használd minden "hogyan / miért / mit tegyek" ' +
-      'jellegű kérdésnél. A katalógus TÉNYEIHEZ (ár, készlet, méret) ne ezt használd, hanem a runSql-t. ' +
-      'A találatok forrás-URL-t is tartalmaznak — a válaszban hivatkozz rájuk.',
+    description: DESCRIPTION,
     inputSchema: z.object({
-      question: z
-        .string()
-        .describe(
-          'A felhasználó kérdése, természetes nyelven, ahogy elhangzott (ne kulcsszavakká alakítsd).',
-        ),
+      question: z.string().describe(QUESTION_PARAM),
     }),
     execute: async (input, { toolCallId }) => {
       const outcome = await executeSearchKnowledge(input);

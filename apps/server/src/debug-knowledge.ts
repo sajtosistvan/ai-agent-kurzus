@@ -101,7 +101,7 @@ debugKnowledgeRouter.get('/chunks', async (req, res) => {
       const { hits, searchText } = await retrieveKnowledge(search, { topK });
       res.json({
         query: search,
-        pipeline: 'HyDE → embedding → pgvector (20) → rerank (gpt-4.1-nano) → top-K',
+        pipeline: 'HyDE → embedding → pgvector (20) → rerank (claude-haiku-4-5) → top-K',
         hypotheticalAnswer: searchText,
         hits: hits.map((hit) => ({
           title: hit.title,

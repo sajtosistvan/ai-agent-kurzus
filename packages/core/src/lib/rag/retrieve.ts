@@ -111,7 +111,7 @@ export async function retrieveKnowledge(
 
   const reranked = await rerankHits(question, hits, topK);
   logHits(
-    `4) rerank (gpt-4.1-nano) — a ${topK} legjobb a ${hits.length}-ből, ÚJ sorrendben:`,
+    `4) rerank (claude-haiku-4-5) — a ${topK} legjobb a ${hits.length}-ből, ÚJ sorrendben:`,
     reranked,
   );
 

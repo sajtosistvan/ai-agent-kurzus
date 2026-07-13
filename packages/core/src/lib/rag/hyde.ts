@@ -18,6 +18,15 @@ import { loadConfig } from '../config.js';
 
 const HYDE_MODEL = 'gpt-4.1-nano';
 
+// A modellnek szóló szöveg EGY BLOKKBAN — úgy szerkeszted, ahogy a modell látja.
+const HYDE_PROMPT = `
+Írj egy rövid (2-3 mondat), magabiztos szakaszt egy növénygondozási útmutatóból,
+ami megválaszolja a kérdést.
+
+Úgy fogalmazz, ahogy egy ilyen cikk írna: kijelentő mondatokkal, szakkifejezésekkel.
+Angolul írj — a tudásbázis angol. Ne kérdezz vissza.
+`.trim();
+
 let provider: OpenAIProvider | null = null;
 function getModel() {
   if (!provider) {
@@ -34,10 +43,7 @@ export async function hypotheticalAnswer(question: string): Promise<string> {
   try {
     const { text } = await generateText({
       model: getModel(),
-      system:
-        'Írj egy rövid (2-3 mondat), magabiztos szakaszt egy növénygondozási útmutatóból, ' +
-        'ami megválaszolja a kérdést. Úgy fogalmazz, ahogy egy ilyen cikk írna — kijelentő ' +
-        'mondatokkal, szakkifejezésekkel. Angolul írj (a tudásbázis angol). Ne kérdezz vissza.',
+      system: HYDE_PROMPT,
       prompt: question,
       maxOutputTokens: 200,
     });

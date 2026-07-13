@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { createOpenAI, type OpenAIProvider } from '@ai-sdk/openai';
+import { createAnthropic, type AnthropicProvider } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 import { loadConfig } from '../config.js';
 import type { KnowledgeHit } from './knowledge-store.js';
@@ -16,15 +16,25 @@ import type { KnowledgeHit } from './knowledge-store.js';
 //   2. ÁTRANGSOROLÁS: egy KIS, OLCSÓ modell elolvassa a 20 darabot a kérdés fényében,
 //      és pontozza őket 0-10-ig. Ebből tartjuk meg az 5 legjobbat.
 //
-// Ez egyben a ROUTING legkézzelfoghatóbb esete: a rangsorolás gpt-4.1-nano (fillér),
-// a válasz Claude Sonnet (drága). Mindkettő azt csinálja, amiben jó.
+// Ez egyben a ROUTING legkézzelfoghatóbb esete: a rangsorolás Claude Haiku (kicsi, gyors, olcsó),
+// a válasz Claude Sonnet (nagy, drága). Mindkettő azt csinálja, amiben jó.
 
-const RERANK_MODEL = 'gpt-4.1-nano';
+const RERANK_MODEL = 'claude-haiku-4-5';
 
-let provider: OpenAIProvider | null = null;
+// A modellnek szóló szöveg EGY BLOKKBAN — úgy szerkeszted, ahogy a modell látja.
+const RERANK_PROMPT = `
+Te egy kereső-átrangsoroló vagy.
+
+Pontozd 0-10-ig, hogy az egyes részletek mennyire válaszolják meg a felhasználó kérdését.
+Minden részletet pontozz, a sorszámára hivatkozva.
+
+A magas pont KONKRÉT, a kérdésre vonatkozó választ jelent — nem témabeli rokonságot.
+`.trim();
+
+let provider: AnthropicProvider | null = null;
 function getModel() {
   if (!provider) {
-    provider = createOpenAI({ apiKey: loadConfig().openaiApiKey });
+    provider = createAnthropic({ apiKey: loadConfig().apiKey });
   }
   return provider(RERANK_MODEL);
 }
@@ -66,10 +76,7 @@ export async function rerankHits(
     const { object } = await generateObject({
       model: getModel(),
       schema: ScoresSchema,
-      system:
-        'Te egy kereső-átrangsoroló vagy. Pontozd 0-10-ig, hogy az egyes részletek mennyire ' +
-        'válaszolják meg a felhasználó kérdését. Minden részletet pontozz, a sorszámára hivatkozva. ' +
-        'A magas pont KONKRÉT, a kérdésre vonatkozó választ jelent, nem témabeli rokonságot.',
+      system: RERANK_PROMPT,
       prompt: `KÉRDÉS: ${question}\n\nRÉSZLETEK:\n\n${numbered}`,
     });
 
