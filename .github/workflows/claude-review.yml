@@ -4,6 +4,17 @@ name: Claude Review
 
 on:
   pull_request:
+    # ready_for_review kell a listába: draft PR-on nem futunk (lásd a jobok `if`-jét),
+    # ezért a draftból élesített PR-nak ezen az eseményen kell megkapnia a review-t —
+    # az alap típusok (opened, synchronize, reopened) között nincs benne.
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Pushonként új futás indul, és a régi eredménye már elavult kódra vonatkozna —
+# gyors egymásutáni pushoknál a folyamatban lévőt lemondjuk, hogy ne posztoljon
+# elavult kommentet (és API-költséget se égessen).
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,6 +24,8 @@ permissions:
 
 jobs:
   claude-review:
+    # Draft PR-on nem futunk: a review-t majd az élesítés (ready_for_review) váltja ki.
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +58,8 @@ jobs:
   # delegál rá. MINDIG kommentel — akkor is, ha nincs találat — hogy a PR-on lásd:
   # az audit lefutott és tiszta.
   convention-audit:
+    # Draft PR-on nem futunk — ugyanaz, mint a claude-review jobnál.
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
