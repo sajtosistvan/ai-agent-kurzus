@@ -7,9 +7,11 @@
 //     zajjal, és fizetsz érte minden kérdésnél.
 //
 // A SZABÁLY, amit követünk: a darabhatár SOHA ne vágjon ketté egy gondolatot.
-// Ezért nem karakterre vágunk, hanem BEKEZDÉSEKET pakolunk egymás mellé, amíg elférnek.
-// Ez a "szemantikus chunkolás" legegyszerűbb, kézzelfogható formája: a szerző már megcsinálta
-// helyettünk a tagolást (bekezdés, szakaszcím) — mi csak tiszteletben tartjuk.
+// Ezért nem karakterre vágunk, hanem a SZERZŐ TAGOLÁSÁT követjük:
+//   1. ALCÍMNÉL (## / ###) mindig új darab kezdődik — a szakasz egy gondolati egység,
+//   2. a szakaszon belül BEKEZDÉSEKET pakolunk egymás mellé, amíg elférnek a méretkeretben.
+// Ez a "szemantikus chunkolás" kézzelfogható formája: a tagolást a cikk írója már elvégezte,
+// mi csak tiszteletben tartjuk.
 //
 // OVERLAP (átfedés): az utolsó bekezdést átvisszük a következő darabba. Miért? Mert a határon
 // álló mondat kontextusa különben elveszne ("Ezt hetente ismételd." — mit is?).
@@ -81,6 +83,14 @@ export function chunkMarkdown(text: string, options: ChunkOptions = {}): Chunk[]
   };
 
   for (const paragraph of paragraphs) {
+    const isHeading = paragraph.startsWith('#');
+    // Alcímnél új darabot kezdünk (a szakasz elejét ne ragasszuk az előző szakasz végéhez),
+    // és ilyenkor átfedést sem viszünk át — új gondolat kezdődik.
+    if (isHeading && current.length > 0) {
+      chunks.push({ content: current.join('\n\n'), index: chunks.length });
+      current = [];
+      currentLength = 0;
+    }
     if (currentLength + paragraph.length > maxChars) {
       flush();
     }

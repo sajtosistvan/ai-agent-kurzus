@@ -33,6 +33,15 @@ interface Document {
   body: string;
 }
 
+// A cikkek végén bolti zaj van (termék-ajánló blokk, szerzői aláírás). Ez NEM tudás —
+// ha bekerülne a tudásbázisba, a keresés termékreklámot találna a gondozási kérdésre.
+// A valós korpusz tisztítása a RAG munka javát teszi ki; ez a leggyakoribb fajtája.
+const SHOP_NOISE_HEADINGS = /\n#+\s*(Perfect Pairings|Words By The Sill|Shop |Related Posts)[\s\S]*$/i;
+
+function stripShopNoise(body: string): string {
+  return body.replace(SHOP_NOISE_HEADINGS, '').trim();
+}
+
 /** A markdown fejléc (front matter) kiolvasása: innen jön a forrás-URL és a cím. */
 function parseDocument(markdown: string, fallbackTitle: string): Document {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -53,7 +62,7 @@ function parseDocument(markdown: string, fallbackTitle: string): Document {
     source: field('source'),
     title: field('title') || fallbackTitle,
     category: field('category') || 'egyéb',
-    body: body ?? '',
+    body: stripShopNoise(body ?? ''),
   };
 }
 

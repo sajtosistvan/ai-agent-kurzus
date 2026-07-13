@@ -47,6 +47,8 @@ setWatchLog(join(process.cwd(), 'logs', 'agent.log'));
 const app = express();
 app.use(cors());
 app.use(express.json());
+// A debug-végpontokat böngészőből nézzük (kivetítve) — formázott JSON, hogy olvasható legyen.
+app.set('json spaces', 2);
 
 // Az UIMessage szöveg-részeiből (text parts) állítja össze a nyers kérdést-szöveget.
 function extractText(message: UIMessage): string {
