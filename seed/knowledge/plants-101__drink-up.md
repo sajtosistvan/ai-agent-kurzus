@@ -1,10 +1,10 @@
 ---
-title: How Often And How Much You Should Water Houseplants - The Sill
+title: How Often And How Much You Should Water Houseplants
 source: https://www.thesill.com/blogs/plants-101/drink-up
 category: plants-101
 ---
 
-# How Often And How Much You Should Water Houseplants - The Sill
+# How Often And How Much You Should Water Houseplants
 
 Plants 101 How Often & How Much You Should Water Houseplants Water is amazing. Made up of hydrogen and oxygen, it's literally responsible for all life on Earth. Watering your plant is a no brainer, but how much and how often can be more tricky to tell. Luckily, we have a few ideas on watering for optimum plant health. Water is amazing. Made up of hydrogen and oxygen, it’s literally responsible for all life on Earth. Watering your plant is a no-brainer, but how much and how often can be more tricky to tell. Luckily, we have a few ideas on watering for optimum plant health. What does watering my plants do?
 

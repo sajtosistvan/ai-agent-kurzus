@@ -61,7 +61,9 @@ export async function askAgent(
       }),
       // Admin esetén a delegálás + a végső összegzés miatt kicsivel több kör kellhet.
       maxSteps: admin ? 8 : 6,
-      maxOutputTokens: 1024,
+      // A RAG-válasz hosszabb: a katalógus-sorok MELLETT a tudásbázis-részletek összegzése és a
+      // forrás-hivatkozások is beleférjenek (1024-nél félbevágódott).
+      maxOutputTokens: 2500,
       emptyAnswer:
         'Nem sikerült végső választ adni a megengedett lépésszámon belül. Pontosítsd a kérdést.',
     },

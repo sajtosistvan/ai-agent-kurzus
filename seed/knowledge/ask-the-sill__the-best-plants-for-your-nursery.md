@@ -1,10 +1,10 @@
 ---
-title: The Best Non-Toxic Plants for Your Baby's Nursery - The Sill
+title: The Best Non-Toxic Plants for Your Baby's Nursery
 source: https://www.thesill.com/blogs/ask-the-sill/the-best-plants-for-your-nursery
 category: ask-the-sill
 ---
 
-# The Best Non-Toxic Plants for Your Baby's Nursery - The Sill
+# The Best Non-Toxic Plants for Your Baby's Nursery
 
 Ask The Sill The Best Plants for Your Nursery When you grow plants in your baby’s nursery, you are instilling a love of nature in your baby that will last a lifetime. By choosing non-toxic plants, you can ensure that your baby’s first exposures to nature are not only inspiring and exciting, but safe. Choose non-toxic plants for your baby’s nursery to ensure their first exposures to nature are not only inspiring and exciting, but safe. In their natural habitats, plants support the surrounding ecosystem in so many ways—providing oxygen, shelter, and food for a diverse community of animals, insects, and micro-organisms.
 

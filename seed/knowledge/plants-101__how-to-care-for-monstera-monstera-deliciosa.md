@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: How To Care For Monstera Monstera Deliciosa
 source: https://www.thesill.com/blogs/plants-101/how-to-care-for-monstera-monstera-deliciosa
 category: plants-101
 ---
 
-# The Sill
+# How To Care For Monstera Monstera Deliciosa
 
 Plants 101 How To Care for a Monstera Deliciosa Learn how to care and create the best growing conditions for the Monstera deliciosa! Monstera at a Glance: Monsteras like bright, indirect light. Near a window is great, but avoid harsh afternoon sun. Those brown things growing from the stems above the soil are called "aerial roots" and they're totally normal. Leave them for a natural look, or trim off for a cleaner silhouette. Your choice! The iconic splitting and holes in a monstera’s leaves are called fenestrations. They occur on more mature, happy leaves. ⚠️ Not pet-friendly: Keep out of reach of curious cats, dogs, and little ones.
 

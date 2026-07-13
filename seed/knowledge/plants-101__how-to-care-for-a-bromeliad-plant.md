@@ -1,10 +1,10 @@
 ---
-title: How to Care for a Bromeliad Plant Indoors - The Sill
+title: How to Care for a Bromeliad Plant Indoors
 source: https://www.thesill.com/blogs/plants-101/how-to-care-for-a-bromeliad-plant
 category: plants-101
 ---
 
-# How to Care for a Bromeliad Plant Indoors - The Sill
+# How to Care for a Bromeliad Plant Indoors
 
 Plants 101 How to Care for a Bromeliad Plant Learn how to care for Bromeliads, or plants from the Bromeliaceae family—home to thousands of colorful and eye-catching easy-care plants. Learn how to care for Bromeliads, or plants from the Bromeliaceae family—home to thousands of colorful and eye-catching easy-care plants. The family Bromeliaceae encompasses more than 2,500 species, and almost all of them are native to the tropical Americas—from Chile and Argentina to Brazil and the Caribbean. Some grow as far north as Virginia and one has appeared, rather improbably, in Guinea!
 

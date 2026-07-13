@@ -1,10 +1,10 @@
 ---
-title: Spring Plant Care Tips and Tricks for Houseplants - The Sill
+title: Spring Plant Care Tips and Tricks for Houseplants
 source: https://www.thesill.com/blogs/plants-101/seasonal-care-spring
 category: plants-101
 ---
 
-# Spring Plant Care Tips and Tricks for Houseplants - The Sill
+# Spring Plant Care Tips and Tricks for Houseplants
 
 Plants 101 Spring Houseplant Care Tips and Tricks As the seasons change, so too do your plant needs. Indoor plants are affected by outdoor changes. We’re sharing easy plant care tips and tricks from our team to help your houseplants thrive this spring. As the seasons change, so too do your plant needs. Indoor plants are affected by outdoor changes. We’re sharing easy plant care tips and tricks to help your houseplants thrive this spring. Spring is one of the best times of the year for your houseplants—the start of the growing season, plants seem to come alive again right before our eyes. Like us, they’re looking forward to warmer temps and longer days.
 

@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Non Toxic Kid Safe Peperomia Plant
 source: https://www.thesill.com/blogs/ask-the-sill/non-toxic-kid-safe-peperomia-plant
 category: ask-the-sill
 ---
 
-# The Sill
+# Non Toxic Kid Safe Peperomia Plant
 
 Ask The Sill A Cute Non-Toxic, Kid-Friendly Plant “I’m a teacher and want to spruce up my classroom with plants. What’s a safe bet for a classroom filled with little kids?” Suzy, The Bronx From flawlessly introducing a trendy plant to tackling windowless room woes — plant enthusiast and customer happiness team lead Chrissy will set you up with the perfect plant pick. “I’m a teacher and want to spruce up my classroom with plants. What’s a safe bet for a classroom filled with little kids?” Suzy, The Bronx Sprucing up your classroom for the school year is a great idea!
 

@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Our 6 Plant Picks For Fall
 source: https://www.thesill.com/blogs/plants-101/our-6-plant-picks-for-fall
 category: plants-101
 ---
 
-# The Sill
+# Our 6 Plant Picks For Fall
 
 Plants 101 Our 6 Most Popular Houseplants for Fall Autumn leaves will soon be falling, and we’re ready to embrace sweater weather and cozy up at home. If you’re looking to bring the warmth and welcome of fall to your space, you’re in luck. We rounded up six plant options that are fall-friendly, especially if your home is seeing less light these days. If you’re looking to add some new plants to your home just in time for cozy season, we’ve got you covered with our top six houseplants for fall. Autumn leaves will soon be falling, and we’re ready to embrace sweater weather and cozy up at home.
 

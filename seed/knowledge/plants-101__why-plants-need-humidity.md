@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Why Plants Need Humidity
 source: https://www.thesill.com/blogs/plants-101/why-plants-need-humidity
 category: plants-101
 ---
 
-# The Sill
+# Why Plants Need Humidity
 
 Plants 101 How To Increase Humidity for Houseplants If you’ve ever experienced a New York summer, you might describe it as humid. The blankety, moisture-filled air that makes morning commutes sticky and wreaks havoc on our hair is essential for certain plants. Although thick, humid air can be a pain for humans, it is super beneficial for houseplants. Here’s how to create a more humid environment for your plants at home, especially during the winter. What is Humidity? Humidity is the relative amount of water vapor contained in the air. As temperature rises the capacity of the air to hold water vapor increases.
 

@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Understanding Lighting In Your Home And How It Affects Your Plants
 source: https://www.thesill.com/blogs/care-miscellaneous/understanding-lighting-in-your-home-and-how-it-affects-your-plants
 category: care-miscellaneous
 ---
 
-# The Sill
+# Understanding Lighting In Your Home And How It Affects Your Plants
 
 Common Care Questions Understanding Lighting in Your Home and How It Affects Your Plants If you’re looking to add new houseplants to your space, there’s one big factor you have to keep in mind: the kind of lighting you have at home. Here’s how to know the different kinds of light and how to make adjustments if needed. How can I figure out what kind of light I have at home? To better understand light within your home, it’s important to know where your windows point, especially if you’re relying on natural lighting to help your plants grow. As we know, the sun rises in the East and sets in the West, so it’ll be moving throughout the day. Not sure which direction your windows face?
 

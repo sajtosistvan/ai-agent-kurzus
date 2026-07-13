@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Tips Tricks For A Successful Plant Propagtion
 source: https://www.thesill.com/blogs/plants-101/tips-tricks-for-a-successful-plant-propagtion
 category: plants-101
 ---
 
-# The Sill
+# Tips Tricks For A Successful Plant Propagtion
 
 Plants 101 Tips & Tricks for a Successful Plant Propagation If you’re propagating a plant by stem or leaf cutting, we have a few tips and tricks you can follow to ensure the cuttings take root and thrive within their new home. If you’re propagating a plant by stem or leaf cutting, we have a few tips and tricks you can follow to ensure the cuttings take root and thrive within their new home. Propagation is fun and an easy way to grow your plant collection! Read on to find out our tips and tricks for setting your propagation up for success.
 

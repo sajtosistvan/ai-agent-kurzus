@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: How To Care For Zz Zamioculcas Zamiifolia
 source: https://www.thesill.com/blogs/plants-101/how-to-care-for-zz-zamioculcas-zamiifolia
 category: plants-101
 ---
 
-# The Sill
+# How To Care For Zz Zamioculcas Zamiifolia
 
 Plants 101 How To Care for a ZZ Plant or Zamioculcas Zamiifolia Looking for a highly dependable easy-care houseplant? The ZZ Plant is for you. Find out our tips for keeping it in the best condition. Learn how to care for the ZZ Plant! The Zamioculcas zamiifolia – or ZZ Plant — is a tropical perennial native to Eastern Africa that has become popular worldwide in recent years due to its tolerance of a wide range of conditions. The ZZ grows smooth, naturally shiny leaves that range from bright lime in their youth to an emerald green in their maturity. Individual leaflets are typically one to three inches long.
 

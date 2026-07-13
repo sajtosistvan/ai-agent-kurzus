@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Seasonal Care Summer
 source: https://www.thesill.com/blogs/plants-101/seasonal-care-summer
 category: plants-101
 ---
 
-# The Sill
+# Seasonal Care Summer
 
 Plants 101 Five Summer Plant Care Tips and Tricks As the seasons change, so do your plant’s needs. Indoor plants are affected by outdoor changes. In this article, we’re talking about all things summer and what you can do to keep your plants happy as the temperature rises. As the seasons change, so do your plant’s needs. In this article, we’re talking about all things summer and what you can do to keep your plants happy as the temperature rises. Finally, Summer Who doesn’t love summer? Long days, warm nights, a time to take it easy. And our plants love summer, too. For them—summer is the growing season. It is the time of year when the conditions are just right for ample growth.
 

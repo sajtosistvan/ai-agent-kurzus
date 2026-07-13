@@ -1,10 +1,10 @@
 ---
-title: The Benefits of Having Plants in Your Home or Office - The Sill
+title: The Benefits of Having Plants in Your Home or Office
 source: https://www.thesill.com/blogs/care-miscellaneous/why-you-need-plants-in-your-life
 category: care-miscellaneous
 ---
 
-# The Benefits of Having Plants in Your Home or Office - The Sill
+# The Benefits of Having Plants in Your Home or Office
 
 Common Care Questions The Benefits of Houseplants Indoor plants don’t just look good, they make us feel good mentally and physically, too. They've been shown to boost moods, increase creativity, and reduce stress—making for a healthier, happier you. Not only do indoor plants enhance the overall appearance of a space, but studies show they boost moods, increase creativity, reduce stress, and eliminate air pollutants—making for a healthier, happier you. Indoor plants don’t just look good—they can make us feel good, too. Studies have shown indoor plants can...
 

@@ -1,10 +1,10 @@
 ---
-title: How to Reuse Coffee Grounds to Fertilize Houseplants - The Sill
+title: How to Reuse Coffee Grounds to Fertilize Houseplants
 source: https://www.thesill.com/blogs/plants-101/how-to-reuse-coffee-grounds-for-your-plants
 category: plants-101
 ---
 
-# How to Reuse Coffee Grounds to Fertilize Houseplants - The Sill
+# How to Reuse Coffee Grounds to Fertilize Houseplants
 
 Plants 101 How to Reuse Coffee Grounds to Fertilize Houseplants Did you know you can recycle your used coffee grounds into fertilizer for your plants? Learn more about reusing this common kitchen waste item in your plant care routine. If you’re a coffee drinker or share your space with one, you’re most likely familiar with coffee grounds. But did you know you can reuse this common kitchen waste item? Are Coffee Grounds Good for Plants? Coffee grounds contain several key nutrients needed by plants, including nitrogen, potassium, magnesium, calcium, and other trace minerals. These are all nutrients that plants need to grow.
 

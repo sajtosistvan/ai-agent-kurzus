@@ -1,10 +1,10 @@
 ---
-title: The Best Valentine's Day Gifts for Every Love Language - The Sill
+title: The Best Valentine's Day Gifts for Every Love Language
 source: https://www.thesill.com/blogs/ask-the-sill/the-best-gifts-based-on-your-loved-ones-love-language
 category: ask-the-sill
 ---
 
-# The Best Valentine's Day Gifts for Every Love Language - The Sill
+# The Best Valentine's Day Gifts for Every Love Language
 
 Ask The Sill The Best Gifts for Every Love Language When picking out a Valentine’s Day gift, consider your loved one’s love language. Whether it’s words of affirmation, physical touch, receiving gifts, quality time, or acts of service—we have gift ideas that will make them feel extra special this February. At a Glance Choose an Olive Tree for words of affirmation to symbolize a growing and lasting sentiment. Gift long-lasting blooms or a monthly plant subscription as an alternative to temporary bouquets. Provide plant care tools like leaf care spray or a moisture meter for acts of service to help nurture their indoor jungle.
 

@@ -1,10 +1,10 @@
 ---
-title: How To Keep Your Plants Alive While You’re On Vacation - The Sill
+title: How To Keep Your Plants Alive While You’re On Vacation
 source: https://www.thesill.com/blogs/plants-101/how-to-keep-your-houseplants-alive-while-youre-on-vacation
 category: plants-101
 ---
 
-# How To Keep Your Plants Alive While You’re On Vacation - The Sill
+# How To Keep Your Plants Alive While You’re On Vacation
 
 Plants 101 How To Keep Your Plants Alive While On Vacation Going on vacation? We’re sharing o ur top tips and tricks to keep your houseplants happy and healthy while you’re away. Going on vacation? We’re sharing our top tips and tricks to keep your houseplants happy and healthy while you’re away. Whether you’ll be spending a long weekend warming up at the beach or a full month at home for the holidays, we ’ re sharing our top tips and tricks below for keeping your houseplants happy and healthy while you’re away. It only takes a little time to prep your plants so you can focus on more important things, like packing! 1.
 

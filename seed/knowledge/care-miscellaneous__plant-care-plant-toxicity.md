@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Plant Care Plant Toxicity
 source: https://www.thesill.com/blogs/care-miscellaneous/plant-care-plant-toxicity
 category: care-miscellaneous
 ---
 
-# The Sill
+# Plant Care Plant Toxicity
 
 Common Care Questions What is Plant Toxicity? Is there a creature making a meal out of your plant? Let’s take a look at the fascinating way plants protect themselves from being eaten. Is there a creature making a meal out of your plant? Let’s take a look at the fascinating way plants protect themselves from being eaten. Plant toxicity is a naturally occurring, chemical process of a plant defending itself against being eaten (herbivory). Some plants create or secrete what are called secondary plant metabolites. The purpose of these is to defend against herbivory. This is a mostly successful process — plants have been doing this for millions of years!
 

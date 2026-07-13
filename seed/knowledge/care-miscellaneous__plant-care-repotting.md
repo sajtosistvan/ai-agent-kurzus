@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Plant Care Repotting
 source: https://www.thesill.com/blogs/care-miscellaneous/plant-care-repotting
 category: care-miscellaneous
 ---
 
-# The Sill
+# Plant Care Repotting
 
 Common Care Questions How To Repot Your Houseplant With some simple tips and tricks, potting your houseplants is easy. If you want to switch up the decor or your plant is overgrown, proper potting is key to set your plant up for success. Let's take a look at what to know before you repot. With some simple tips and tricks, potting your houseplants is easy. If you want to switch up the decor or your plant is overgrown, proper potting is key to set your plant up for success. Let's take a look at what to know before you pot. Repotting your plants can sound tricky, but we have a few tips to make it a success.
 

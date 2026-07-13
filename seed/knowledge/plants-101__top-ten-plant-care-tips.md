@@ -1,10 +1,10 @@
 ---
-title: Top Ten Plant Care Tips for Houseplants & Indoor Plants - The Sill
+title: Top Ten Plant Care Tips for Houseplants & Indoor Plants
 source: https://www.thesill.com/blogs/plants-101/top-ten-plant-care-tips
 category: plants-101
 ---
 
-# Top Ten Plant Care Tips for Houseplants & Indoor Plants - The Sill
+# Top Ten Plant Care Tips for Houseplants & Indoor Plants
 
 Plants 101 Our Top 10 Plant Care Tips There are plenty of ways to care for your plant. With the help of our plant experts, we’ve weeded out the top 10 tips for healthy, happy plants. There are plenty of ways to care for your plant. With the help of our plant experts, we’ve weeded out the top 10 tips for healthy, happy plants. 1.​ ​Choose plants based on your light Are the plants you love the ones you can have? Our #1 rule of (green) thumb is to determine the amount of natural light your space receives, and to choose your plant accordingly. If you’re not sure just by looking, start by figuring out which direction your windows face.
 

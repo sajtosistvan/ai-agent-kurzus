@@ -1,10 +1,10 @@
 ---
-title: Easy Indoor Plants That Can Survive Low Light - The Sill
+title: Easy Indoor Plants That Can Survive Low Light
 source: https://www.thesill.com/blogs/plants-101/low-light-houseplants
 category: plants-101
 ---
 
-# Easy Indoor Plants That Can Survive Low Light - The Sill
+# Easy Indoor Plants That Can Survive Low Light
 
 Plants 101 Easy Indoor Plants That Can Survive Low Light Floor-to-ceiling south-facing windows sound nice, but what about if your home is not made of glass? Read on to find out how to create an at-home oasis full of plants tolerant of low light—and what “low light tolerant” even means. Find out how to create an at-home oasis full of plants tolerant of low light. Learn what low light really means, how to care for low light houseplants, and our top low light tolerant picks. Is your space lacking in natural light? Whether you’re looking for a plant for a ground floor apartment or office cubicle, opt for a low light tolerant plant to set yourself up for plant parenthood success.
 

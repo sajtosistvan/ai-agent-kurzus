@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Gift For New Job Desk Plants
 source: https://www.thesill.com/blogs/ask-the-sill/gift-for-new-job-desk-plants
 category: ask-the-sill
 ---
 
-# The Sill
+# Gift For New Job Desk Plants
 
 Ask The Sill The Best Gift to Say Congratulations on a New Job “My friend just started a new job. I’d love to give her a plant that says good luck and send positive vibes, what do you recommend?” — Amy, Denver From flawlessly introducing a trendy plant to tackling windowless room woes—plant enthusiast and customer happiness team lead Chrissy will set you up with the perfect plant pick. “My friend just started a new job. I’d love to give her a plant that says good luck and send positive vibes, what do you recommend?” – Amy, Denver Hi Amy! I know a plant that would be perfect for this—the Money Tree is said to bring good luck and prosperity, making it the ideal addition to any new workspace.
 

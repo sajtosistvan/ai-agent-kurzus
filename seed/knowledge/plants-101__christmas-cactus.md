@@ -1,10 +1,10 @@
 ---
-title: How to Care for a Christmas Cactus or Schlumbergera - The Sill
+title: How to Care for a Christmas Cactus or Schlumbergera
 source: https://www.thesill.com/blogs/plants-101/christmas-cactus
 category: plants-101
 ---
 
-# How to Care for a Christmas Cactus or Schlumbergera - The Sill
+# How to Care for a Christmas Cactus or Schlumbergera
 
 Plants 101 How to Care for a Christmas Cactus or Schlumbergera Learn how to care for Schlumbergera cacti, including the popular Christmas Cactus, Thanksgiving Cactus, and Easter Cactus. Unlike their desert-dwelling family members, the epiphytic and epilithic cacti in this unique genus call humid southeastern Brazil home. Learn how to care for species of Schlumbergera, including all the Holiday Cacti—the Christmas Cactus, Thanksgiving Cactus, and Easter Cactus. Schlumbergera is a small genus of cacti found in humid and somewhat shady areas of southeastern Brazil, including Brazil’s costal mountain ranges.
 

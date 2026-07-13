@@ -1,10 +1,10 @@
 ---
-title: Whether to Keep Your Plant in Its Grow Pot or Pot It - The Sill
+title: Whether to Keep Your Plant in Its Grow Pot or Pot It
 source: https://www.thesill.com/blogs/care-miscellaneous/grow-pot
 category: care-miscellaneous
 ---
 
-# Whether to Keep Your Plant in Its Grow Pot or Pot It - The Sill
+# Whether to Keep Your Plant in Its Grow Pot or Pot It
 
 Common Care Questions To Pot or Not to Pot: Grow Pot vs Planter So your plant arrived in its nursery grow pot, now what? Read on to find out whether to keep it in its grow pot, or repot it into a planter. So your plant arrived in its nursery grow pot—now what? When you bring your new plant home in its nursery grow pot, you might be tempted to pot it from grow pot into a planter right away. However, you'll be more successful if you let your new plant acclimate to its new environment first. Why?
 

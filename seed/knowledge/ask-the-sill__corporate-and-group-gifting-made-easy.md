@@ -1,10 +1,10 @@
 ---
-title: Corporate Thank You Gifts and Bulk Gifting Made Easy - The Sill
+title: Corporate Thank You Gifts and Bulk Gifting Made Easy
 source: https://www.thesill.com/blogs/ask-the-sill/corporate-and-group-gifting-made-easy
 category: ask-the-sill
 ---
 
-# Corporate Thank You Gifts and Bulk Gifting Made Easy - The Sill
+# Corporate Thank You Gifts and Bulk Gifting Made Easy
 
 Ask The Sill Corporate & Group Gifting Made Easy Give new employees a warm welcome, express appreciation to valued clients, or simply recognize your team’s hard work—with the gift that keeps on growing. A plant is a fun, universal gift that works well for any occasion. Give new employees a warm welcome, express appreciation to valued clients, or simply recognize your team’s hard work—with the gift that keeps on growing. Whether you’re looking to welcome employees back to the office, show appreciation to your remote co-workers, or say thank you to valued clients and vendors—a plant is a great, universally loved choice.
 

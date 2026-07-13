@@ -1,10 +1,10 @@
 ---
-title: How to Care for Norfolk Island Pine Tree - The Sill
+title: How to Care for Norfolk Island Pine Tree
 source: https://www.thesill.com/blogs/plants-101/how-to-care-for-norfolk-island-pine-araucaria-heterophilla
 category: plants-101
 ---
 
-# How to Care for Norfolk Island Pine Tree - The Sill
+# How to Care for Norfolk Island Pine Tree
 
 Plants 101 How to Care for a Norfolk Island Pine Although a lively addition to your home all year round, the Norfolk Island Pine really shines as a live alternative for a Christmas Tree during the holiday season. Learn how to care for the Norfolk Island Pine. Although a lively addition to your home all year round, this houseplant really shines as a live alternative for a Christmas Tree during the holiday season. The Norfolk Island Pine hails from Norfolk Island, a small island in the Pacific Ocean between New Zealand and New Caledonia. Norfolk Island is a significant place for botanists because it is one of the only islands left in the world with several surviving fossil species.
 

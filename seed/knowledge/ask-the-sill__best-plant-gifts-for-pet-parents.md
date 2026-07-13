@@ -1,10 +1,10 @@
 ---
-title: Best Gifts for Pet Parents According to Experts at Chewy - The Sill
+title: Best Gifts for Pet Parents According to Experts at Chewy
 source: https://www.thesill.com/blogs/ask-the-sill/best-plant-gifts-for-pet-parents
 category: ask-the-sill
 ---
 
-# Best Gifts for Pet Parents According to Experts at Chewy - The Sill
+# Best Gifts for Pet Parents According to Experts at Chewy
 
 Ask The Sill The Best Gifts for Pet Parents According to the Experts at Chewy With the holiday season around the corner, we reached out to the pet experts at Chewy to help us create the ultimate gift guide of pet-friendly plants and fur baby accessories. With the holiday season around the corner, we reached out to the pet experts at Chewy to help us create the ultimate gift guide of pet-friendly plants and fur baby accessories. As a team full of pet parents, we know first-hand how important it is for you to keep your fur baby safe. Some of the most common houseplants can be considered toxic to cats and dogs.
 

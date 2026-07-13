@@ -1,10 +1,10 @@
 ---
-title: How to Care for Your Houseplants in Winter - The Sill
+title: How to Care for Your Houseplants in Winter
 source: https://www.thesill.com/blogs/plants-101/seasonal-care-winter
 category: plants-101
 ---
 
-# How to Care for Your Houseplants in Winter - The Sill
+# How to Care for Your Houseplants in Winter
 
 Plants 101 Our Top 7 Winter Plant Care Tips As the seasons change outside, your plant care routine should change inside. Indoor plants are affected by outdoor changes. In this article, we share top tips and tricks for keeping your indoor houseplants alive during the long, dark winter. As the seasons change outside, your plant care routine should change inside. We’re sharing easy tips and tricks for keeping your indoor houseplants alive during the long, dark winter months. Bringing the outdoors in with houseplants is an easy, natural way to beat the winter blues . In this article, we’ll cover our top 7 tips for caring for indoor plants during the winter time .
 

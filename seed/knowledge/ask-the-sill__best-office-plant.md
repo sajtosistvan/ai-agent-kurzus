@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Best Office Plant
 source: https://www.thesill.com/blogs/ask-the-sill/best-office-plant
 category: ask-the-sill
 ---
 
-# The Sill
+# Best Office Plant
 
 Ask The Sill The Best Office Plant “My sister just got a new job and I want to say congrats! What should I send her to spruce up her desk?” —Alyssa, Chicago From flawlessly introducing a trendy plant to tackling windowless room woes—plant enthusiast and customer happiness team lead Chrissy will set you up with the perfect plant pick. “My sister just got a new job and I want to say congrats! What should I send her to spruce up her desk?” —Alyssa, Chicago What a thoughtful sister you are! Having positive vibes at work is crucial, and a new plant sent from a loved one with warm wishes will do just the trick.
 

@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Why Plant Leaves Turn Yellow
 source: https://www.thesill.com/blogs/care-miscellaneous/why-plant-leaves-turn-yellow
 category: care-miscellaneous
 ---
 
-# The Sill
+# Why Plant Leaves Turn Yellow
 
 Common Care Questions 5 Causes For Your Plant’s Yellow Leaves If you’ve ever seen yellow leaves on your what-was-once-green-plant, read on to find out the causes, symptoms and solutions. It’s going to be fine! Why Do Leaves Turn Yellow? Leaves turning yellow on plants can mean different things depending on the variety, and what other symptoms the plant is showing. This is because plants can show similar signs of stress for different reasons including overwatering, underwatering, mineral deficiency, temperature stress, and so on. Identifying the specific symptoms your plant is showing can help you determine the cause and take appropriate action.
 

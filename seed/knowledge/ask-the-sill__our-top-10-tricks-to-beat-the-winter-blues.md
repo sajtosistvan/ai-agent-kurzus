@@ -1,10 +1,10 @@
 ---
-title: Our Top 10 Tips and Tricks To Help Beat The Winter Blues - The Sill
+title: Our Top 10 Tips and Tricks To Help Beat The Winter Blues
 source: https://www.thesill.com/blogs/ask-the-sill/our-top-10-tricks-to-beat-the-winter-blues
 category: ask-the-sill
 ---
 
-# Our Top 10 Tips and Tricks To Help Beat The Winter Blues - The Sill
+# Our Top 10 Tips and Tricks To Help Beat The Winter Blues
 
 Ask The Sill Our Top 10 Tips and Tricks To Beat the Winter Blues Now that the clocks have moved one hour back, it is inevitable that some of us are feeling the seasonal slump of shorter days and less sunlight, just like our plants. To help you face those winter blues head-on, our team rounded up some tips and tricks that they turn to. Now that the clocks have moved one hour back, it is inevitable that some of us are feeling the seasonal slump of shorter days and less sunlight, just like our plants. To help you face those winter blues head-on, our team rounded up some tips and tricks that they turn to. Maybe you’re tired and moody. Maybe you lack motivation.
 

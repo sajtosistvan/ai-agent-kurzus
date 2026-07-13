@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Orchids
 source: https://www.thesill.com/blogs/plants-101/orchids
 category: plants-101
 ---
 
-# The Sill
+# Orchids
 
 Plants 101 Phalaenopsis Orchid Plant Care Orchids are epiphytic in their native habitat, growing on trees and rock formations, instead of directly in the ground. The orchid family (Orchidaceae) can be found in almost every habitat besides glaciers, but the most diverse types of orchids can be found in the tropics. They are known for their bright colorful flowers, and there are about 25,000 different species around the world. Learn how to care for the Phalaenopsis orchid. The name “orchid” comes from the Greek word orkhis, and was named by an ancient Greek botanist named Theophrastos, who thought the orchid's roots resembled a part of the male anatomy.
 

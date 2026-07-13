@@ -1,10 +1,10 @@
 ---
-title: How To Care for a Calathea Plant - The Sill
+title: How To Care for a Calathea Plant
 source: https://www.thesill.com/blogs/plants-101/how-to-care-for-calathea
 category: plants-101
 ---
 
-# How To Care for a Calathea Plant - The Sill
+# How To Care for a Calathea Plant
 
 Plants 101 How To Care for a Calathea Learn how to care for most varieties of calathea plants, including Calathea Rattlesnake, Pinstripe Calathea, Peacock Plant (Calathea Makoyana), and other popular prayer plants. Calathea is a genus of neotropical rhizomatous herbaceous perennial plants that are known for the unique leaf movements of patterned foliage (more on that below). Calatheas are also considered pet-friendly plants , making them great plant picks for anyone that shares a space with curious pets. In the tropics (mostly Brazil), colorful calathea leaves are used for handicraft and food wrapping.
 

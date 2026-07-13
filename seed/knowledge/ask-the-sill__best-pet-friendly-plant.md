@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Best Pet Friendly Plant
 source: https://www.thesill.com/blogs/ask-the-sill/best-pet-friendly-plant
 category: ask-the-sill
 ---
 
-# The Sill
+# Best Pet Friendly Plant
 
 Ask The Sill The Best Pet-Friendly Plant for Your Home We understand the importance of keeping your furry friends safe, so we have our top, pet-safe plant pick for all of the dog and cat lovers who also love plants. From flawlessly introducing a trendy plant to tackling windowless room woes — plant enthusiast and customer happiness team lead Chrissy will set you up with the perfect plant pick. “I’m a cat lady that loves plants.
 

@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: Inside Out How To Bring Indoor Plants Outdoors
 source: https://www.thesill.com/blogs/plants-101/inside-out-how-to-bring-indoor-plants-outdoors
 category: plants-101
 ---
 
-# The Sill
+# Inside Out How To Bring Indoor Plants Outdoors
 
 Plants 101 How To Move Your Plants Outside for Summer Transitioning your indoor plants to the outdoors is not easy. Exposed to the elements, outdoor plants can require extra attention and commitment. That said, our houseplants can benefit from a summer outside. If you plan to move your indoor plants out, here's how-to do it. Transitioning your indoor plants to the outdoors is not easy. Exposed to the elements, outdoor plants can require extra attention and commitment. That said, our houseplants can benefit from a summer outside. If you plan to move your indoor plants out, here’s how-to do it. Like us humans, houseplants can benefit from time outside, too.
 

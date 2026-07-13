@@ -1,10 +1,10 @@
 ---
-title: Fall Plant Care Tips and Tricks for Houseplants - The Sill
+title: Fall Plant Care Tips and Tricks for Houseplants
 source: https://www.thesill.com/blogs/plants-101/seasonal-care-fall
 category: plants-101
 ---
 
-# Fall Plant Care Tips and Tricks for Houseplants - The Sill
+# Fall Plant Care Tips and Tricks for Houseplants
 
 Plants 101 Fall Plant Care Tips For Houseplants As the seasons change, so too do your plant’s needs. Indoor plants are affected by outdoor changes. In this article, we’re talking about all things fall and how you should care for your plants when the temperatures cool down and the days shorten. As the seasons change, so too do your plant’s needs. Indoor plants are affected by outdoor changes. In this article, we’re talking about all things fall and how you should care for your plants when the temperatures cool down and the days shorten. The weather changes in fall can be dramatic from day to night.
 

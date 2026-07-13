@@ -1,10 +1,10 @@
 ---
-title: How to Gift a Live Plant Like a Pro - The Sill
+title: How to Gift a Live Plant Like a Pro
 source: https://www.thesill.com/blogs/ask-the-sill/how-to-gift-a-plant
 category: ask-the-sill
 ---
 
-# How to Gift a Live Plant Like a Pro - The Sill
+# How to Gift a Live Plant Like a Pro
 
 Ask The Sill How to Give a Plant as a Gift Like a Pro We often say that parenting a plant should be as wonderful as plants themselves—the same holds true for gifting a plant. Acquaint yourself with our team’s tips for ordering, wrapping, and personalizing a plant gift. Give your friends and family the rewarding gift of plant parenthood with our top tips and tricks for gifting houseplants. You might be asking yourself: Why do plants make such great gifts? 1. Plants last. They’re a meaningful gift that continues to grow and provide beauty for many years to come. Unlike other gifts that eventually expire or are no longer in trend, live plants only get better with time. 2.
 

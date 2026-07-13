@@ -1,10 +1,10 @@
 ---
-title: All About Peperomia Plants and How to Care for Them - The Sill
+title: All About Peperomia Plants and How to Care for Them
 source: https://www.thesill.com/blogs/plants-101/how-to-care-for-a-peperomia
 category: plants-101
 ---
 
-# All About Peperomia Plants and How to Care for Them - The Sill
+# All About Peperomia Plants and How to Care for Them
 
 Plants 101 All About Peperomia Plants and How to Care for Them The Peperomia genus is home to over a thousand species of diverse plants—including popular houseplants such as the Watermelon Peperomia, Ripple Peperomia, Baby Rubber Plant, and more. 2022 is the Year is the Peperomia. The genus, in the peppercorn family Piperaceae, is home to over a thousand species of diverse plants—including popular houseplants such as the Watermelon Peperomia, Ripple Peperomia, Baby Rubber Plant, and more. The family Piperaceae belongs to an ancient lineage of flowering plants known as Magnoliids.
 

@@ -1,10 +1,10 @@
 ---
-title: The Best Pet-Safe Non-Toxic Plants to Gift this Spring - The Sill
+title: The Best Pet-Safe Non-Toxic Plants to Gift this Spring
 source: https://www.thesill.com/blogs/ask-the-sill/the-best-pet-safe-plants-to-gift-this-spring
 category: ask-the-sill
 ---
 
-# The Best Pet-Safe Non-Toxic Plants to Gift this Spring - The Sill
+# The Best Pet-Safe Non-Toxic Plants to Gift this Spring
 
 Ask The Sill The Best Pet-Safe Plants to Gift this Spring We reached out to the pet experts at Chewy to help us pick out the best pet-friendly plants and fur baby accessories for springtime celebrations. We reached out to the pet experts at Chewy to help us pick out the best pet-friendly plants and fur baby accessories for springtime celebrations. Spring is one of the best times of year to gift a plant—whether it is a new trailing plant for your giftee’s sill, a succulent or vine that blooms during this season, or Easter or Passover flowers. However, if your giftee is a pet parent, it is important to consider whether your gift will be safe for their fur baby.
 

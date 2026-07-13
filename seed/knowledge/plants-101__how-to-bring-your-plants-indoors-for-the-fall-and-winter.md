@@ -1,10 +1,10 @@
 ---
-title: The Sill
+title: How To Bring Your Plants Indoors For The Fall And Winter
 source: https://www.thesill.com/blogs/plants-101/how-to-bring-your-plants-indoors-for-the-fall-and-winter
 category: plants-101
 ---
 
-# The Sill
+# How To Bring Your Plants Indoors For The Fall And Winter
 
 Plants 101 How To Bring Your Plants Indoors for Fall and Winter Once the dog days of summer have come and gone, it’s time to bring your plants back inside before the nighttime temperatures dip too low. Here are some tips to make sure that your plants’ transition back indoors is safe and healthy. Once the dog days of summer have come and gone, it’s time to bring your plants back inside before the nighttime temperatures dip too low. Here are some tips to make sure that your plants’ transition back indoors is safe and healthy.
 
