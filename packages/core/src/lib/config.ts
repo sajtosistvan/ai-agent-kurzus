@@ -17,12 +17,16 @@ const ConfigSchema = z.object({
   ANTHROPIC_MODEL: z.string().min(1).default(DEFAULT_MODEL),
   // Az agent runSql-je ezen a READ-ONLY kapcsolaton fut, csak SELECT (NFR1).
   DATABASE_URL_READONLY: z.string().min(1),
+  // A tudásbázishoz (RAG): embedding + a kis modell (rerank, HyDE). Más provider, mint a
+  // válasz-modellé — ez maga a multi-provider routing: olcsó modell keres, drága modell válaszol.
+  OPENAI_API_KEY: z.string().min(1),
 });
 
 export interface Config {
   apiKey: string;
   model: string;
   databaseUrlReadonly: string;
+  openaiApiKey: string;
 }
 
 let cached: Config | null = null;
@@ -44,13 +48,14 @@ export function loadConfig(): Config {
     const field = issue?.path.join('.') || 'env';
     throw new ConfigError(
       `Hiányzó vagy hibás konfiguráció (${field}): ${issue?.message ?? 'ismeretlen'}. ` +
-        'Másold a .env.example-t .env-be, és add meg az ANTHROPIC_API_KEY-t.',
+        'Másold a .env.example-t .env-be, és add meg az ANTHROPIC_API_KEY-t és az OPENAI_API_KEY-t.',
     );
   }
   cached = {
     apiKey: parsed.data.ANTHROPIC_API_KEY,
     model: parsed.data.ANTHROPIC_MODEL,
     databaseUrlReadonly: parsed.data.DATABASE_URL_READONLY,
+    openaiApiKey: parsed.data.OPENAI_API_KEY,
   };
   return cached;
 }

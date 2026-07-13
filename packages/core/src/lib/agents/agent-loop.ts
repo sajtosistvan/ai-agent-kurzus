@@ -3,6 +3,7 @@ import {
   stepCountIs,
   type ModelMessage,
   type StepResult,
+  type StreamTextResult,
   type ToolSet,
 } from 'ai';
 import { createAnthropic, type AnthropicProvider } from '@ai-sdk/anthropic';
@@ -36,6 +37,19 @@ export interface AskOptions {
   print?: boolean;
   /** Ha meg van adva, a végső válasz szövegét TOKENENKÉNT is megkapja, ahogy generálódik. */
   onTextDelta?: (delta: string) => void;
+  /**
+   * KÉT CSATORNA — ez a különbség a "streamel" és a "látod, mit csinál" között:
+   *
+   *   onTextDelta  → SZÖVEG-csatorna: csak a végső válasz betűi. Ezt kapja a CLI (és eddig a web is).
+   *                  Bármilyen gyorsan streamel, a tool-hívás nem fér bele: az nem szöveg.
+   *   onStream     → ÜZENET-csatorna: a hívó megkapja a streamText EREDMÉNYÉT, és abból az AI SDK
+   *                  üzenet-streamjét (text-delta ÉS tool-input ÉS tool-output részek) továbbíthatja
+   *                  a böngészőnek. Ettől tud a kliens kártyát rajzolni a tool-eredményből.
+   *
+   * Ha onStream meg van adva, a stream fogyasztása (és így a loop hajtása) a HÍVÓ dolga —
+   * ezért ilyenkor mi nem olvassuk a fullStream-et.
+   */
+  onStream?: (result: StreamTextResult<ToolSet, never>) => void;
 }
 
 export interface AskResult {
@@ -154,6 +168,14 @@ export async function runAgentLoop(
   // Körönként (pl. "megnézem az adatbázist…" majd a végső válasz) ÚJ kör (start-step) nyílik;
   // az id minden körben nullázódik (0-tól), ezért a kör-határt a start-step eseménnyel
   // követjük: ha az ÉPP LEZÁRULT kör adott vissza szöveget, üres sort szúrunk be elé.
+  // ÜZENET-csatorna: a hívó (a szerver) fogyasztja a stream-et, és továbbítja a böngészőnek
+  // tool-részekkel együtt. A Trace ettől függetlenül fut: a prepareStep / onStepFinish hookok
+  // akkor is meghívódnak, ha nem MI olvassuk a fullStream-et.
+  if (options.onStream) {
+    options.onStream(result);
+    return finishRun(result, agent, trace, messages, options);
+  }
+
   let firstStep = true;
   let currentStepHasText = false;
   for await (const part of result.fullStream) {
@@ -172,6 +194,21 @@ export async function runAgentLoop(
     options.onTextDelta?.(part.text);
   }
 
+  return finishRun(result, agent, trace, messages, options);
+}
+
+/**
+ * A futás lezárása — MINDKÉT csatornánál ugyanaz: megvárjuk a stream végét, lezárjuk a nyomot,
+ * és összeállítjuk a frissített beszélgetést. A `result` promise-ai (text, response, totalUsage)
+ * akkor oldódnak fel, amikor a stream elfogyott — mindegy, hogy MI olvastuk el, vagy a hívó.
+ */
+async function finishRun(
+  result: StreamTextResult<ToolSet, never>,
+  agent: AgentDefinition,
+  trace: Trace,
+  messages: Message[],
+  options: AskOptions,
+): Promise<AskResult> {
   const finalText = await result.text;
   const answer = finalText.trim() !== '' ? finalText : agent.emptyAnswer;
   // Ha nem generálódott szöveg (limit miatt üresen állt meg), a fallback szöveget is

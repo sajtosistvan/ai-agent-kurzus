@@ -4,7 +4,9 @@
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # pgvector-os Postgres: ugyanaz a 17-es szerver, csak benne van a `vector` bővítmény.
+    # A vektor-adatbázisunk NEM külön termék — ez a meglévő Postgres, egy extra oszloptípussal.
+    image: pgvector/pgvector:pg17
     container_name: plantbase-pg
     restart: unless-stopped
     environment:

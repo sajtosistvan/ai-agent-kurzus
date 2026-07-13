@@ -11,6 +11,7 @@ import {
   closeReadWritePool,
   setWatchLog,
 } from '@plantbase/core';
+import { debugKnowledgeRouter } from './debug-knowledge.js';
 
 // server/main.ts — VÉKONY HTTP-réteg a core agent fölött. A böngészőből érkező kérdés PONTOSAN
 // ugyanazon az úton megy, mint a CLI-ben: askAgent → a Vercel AI SDK agent-loop. A `@plantbase/core`
@@ -46,6 +47,8 @@ setWatchLog(join(process.cwd(), 'logs', 'agent.log'));
 const app = express();
 app.use(cors());
 app.use(express.json());
+// A debug-végpontokat böngészőből nézzük (kivetítve) — formázott JSON, hogy olvasható legyen.
+app.set('json spaces', 2);
 
 // Az UIMessage szöveg-részeiből (text parts) állítja össze a nyers kérdést-szöveget.
 function extractText(message: UIMessage): string {
@@ -71,18 +74,19 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  res.type('text/plain');
   try {
     // A korábbi körök (useChat mindig a teljes előzményt küldi) → askAgent history-ja.
     const history = await convertToModelMessages(uiMessages.slice(0, -1));
     // print: true → a teljes trace a szerver konzolján, mint a CLI-ben.
-    // onTextDelta → minden tokent azonnal kiírunk, a TextStreamChatTransport ezt olvassa be.
+    //
+    // onStream → az AI SDK ÜZENET-streamje megy ki (nem sima szöveg): a böngésző így nemcsak a
+    // válasz betűit kapja meg, hanem a TOOL-HÍVÁSOKAT és a TOOL-EREDMÉNYEKET is, típusos részekként
+    // (`tool-runSql`, `tool-searchKnowledge`). Ebből rajzol a kliens kártyát — lásd apps/web/App.tsx.
     await askAgent(question, {
       print: true,
       history,
-      onTextDelta: (delta) => res.write(delta),
+      onStream: (result) => result.pipeUIMessageStreamToResponse(res),
     });
-    res.end();
   } catch (error: unknown) {
     const messageText = error instanceof Error ? error.message : String(error);
     console.error(`plantbase szerver hiba: ${messageText}`);
@@ -94,6 +98,9 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 });
+
+// Debug-végpontok: a RAG belseje (dokumentumok, chunkok, nyers vektorkeresés). Lásd debug-knowledge.ts.
+app.use('/debug/knowledge', debugKnowledgeRouter);
 
 const port = Number(process.env['PORT'] ?? 3001);
 const server = app.listen(port, () => {

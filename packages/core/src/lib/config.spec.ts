@@ -8,6 +8,8 @@ describe('loadConfig', () => {
     process.env = { ...ORIGINAL };
     process.env.DATABASE_URL_READONLY =
       'postgresql://ro@localhost:5433/plantbase';
+    // A tudásbázis (RAG) embedding-providere — a config ezt is megköveteli.
+    process.env.OPENAI_API_KEY = 'sk-openai-test-key';
   });
 
   afterEach(() => {

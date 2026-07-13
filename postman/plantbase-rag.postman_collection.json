@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "Plantbase — RAG (tudásbázis)",
+    "description": "A Plantbase tudásbázisának (RAG) debug-végpontjai. A cél: SZÉTSZEDNI a RAG-ot a két felére — RETRIEVAL (keresés, LLM nélkül) és GENERÁLÁS (a chat válasza). Ha rossz a válasz, először a retrievalt nézd: ha a keresés nem hozta be a jó chunkot, hiába okos a modell.\n\nIndítás: docker compose up -d → pnpm db:migrate → pnpm knowledge:ingest → pnpm server",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "sourceId",
+      "value": "bug-off-fungus-gnats",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Dokumentumok listája",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/debug/knowledge/sources",
+          "host": ["{{baseUrl}}"],
+          "path": ["debug", "knowledge", "sources"]
+        },
+        "description": "MI VAN A TUDÁSBÁZISBAN? Minden dokumentum: cím, kategória, forrás-URL, és hogy HÁNY darabra (chunk) esett szét. Itt látszik, hogy a chunkolás nem elmélet: egy 5000 karakteres cikkből 5-6 darab lesz."
+      }
+    },
+    {
+      "name": "2. Egy dokumentum — a chunkjaival",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/debug/knowledge/sources/{{sourceId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["debug", "knowledge", "sources", "{{sourceId}}"]
+        },
+        "description": "EGY dokumentum teljes tartalma + a darabjai külön-külön (index, karakterszám, szöveg).\n\nEZT NÉZD MEG A CHUNKING BLOKKNÁL: látszik, HOL vágtunk (mindig bekezdés-határon), és látszik az ÁTFEDÉS is — az előző darab utolsó bekezdése megjelenik a következő elején."
+      }
+    },
+    {
+      "name": "3. Minden chunk kiöntése (limit 1000)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/debug/knowledge/chunks",
+          "host": ["{{baseUrl}}"],
+          "path": ["debug", "knowledge", "chunks"]
+        },
+        "description": "A teljes chunk-lista. Erre azért van szükség, mert a tudásbázis addig fekete doboz, amíg nem látod a TÉNYLEGES darabokat, amikből a modell dolgozik."
+      }
+    },
+    {
+      "name": "4. Keresés — NYERS vektortávolság (LLM nélkül)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/debug/knowledge/chunks?search=my monstera leaves are turning yellow&topK=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["debug", "knowledge", "chunks"],
+          "query": [
+            {
+              "key": "search",
+              "value": "my monstera leaves are turning yellow",
+              "description": "A kérdés. Ezt embeddeljük, és a legközelebbi chunkokat keressük."
+            },
+            {
+              "key": "topK",
+              "value": "5",
+              "description": "Hány találat jöjjön vissza."
+            }
+          ]
+        },
+        "description": "A RAG SZÍVE, LLM NÉLKÜL. A válaszban:\n- embeddingDimensions: 1536 (ennyi számmá alakult a kérdés)\n- embeddingPreview: az első 8 szám a vektorból\n- hits[].distance: KOSZINUSZ-TÁVOLSÁG. 0 = azonos jelentés, 1 = semmi köze.\n\nSKÁLA a mi korpuszunkon: 0.2 alatt nagyon jó találat, 0.5 fölött már nem erről szól.\n\nPRÓBÁLD KI: írd át a kérdést szinonimákra (\"why is my plant yellowing\") — a találatok jórészt ugyanazok maradnak. Ez a lényeg: nem kulcsszóra keresünk, hanem JELENTÉSRE."
+      }
+    },
+    {
+      "name": "5. Keresés — TELJES pipeline (HyDE + rerank)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/debug/knowledge/chunks?search=how do I save an overwatered monstera?&pipeline=full&topK=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["debug", "knowledge", "chunks"],
+          "query": [
+            {
+              "key": "search",
+              "value": "how do I save an overwatered monstera?"
+            },
+            {
+              "key": "pipeline",
+              "value": "full",
+              "description": "HyDE → embedding → pgvector (20 találat) → rerank (gpt-4.1-nano) → top-K"
+            },
+            {
+              "key": "topK",
+              "value": "5"
+            }
+          ]
+        },
+        "description": "UGYANAZ A KÉRDÉS, DE A TELJES PIPELINE-NAL. Két új dolog a válaszban:\n\n1. hypotheticalAnswer (HyDE): a kis modell KITALÁL egy választ, és MI AZT keressük a kérdés helyett. Miért? Mert a kérdés (\"hogyan mentsem meg?\") és a válasz (\"Root rot is treated by...\") NEM ugyanazon a nyelven beszél — a kitalált válasz viszont igen, ezért közelebb esik a jó chunkhoz.\n\n2. rerankScore (0-10): a kis modell ELOLVASTA a 20 találatot a kérdés fényében, és átrangsorolta. Figyeld meg: a legjobb rerank-pontszámú chunk gyakran NEM a legkisebb távolságú! A vektortávolság olcsó, de buta — nem tudja, mit kérdeztél.\n\nHASONLÍTSD ÖSSZE a 4. kéréssel (ugyanaz a kérdés, pipeline nélkül) — ez a demó lényege."
+      }
+    },
+    {
+      "name": "6. Chat — a teljes agent (retrieval + generálás)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"Van készleten olyan növény, ami elvan a sötét fürdőszobában — és mit csináljak, ha sárgulni kezd a levele?\"\n        }\n      ]\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat"]
+        },
+        "description": "A WOW-RUN. Ez a kérdés KÉT tudásforrást igényel, és az agent MAGA dönti el, hogy mindkettőt használja:\n- runSql → készlet + fényigény (TÉNY, a products táblából)\n- searchKnowledge → miért sárgul a levél (TUDÁS, a cikkekből)\n\nA választ streamelve adja vissza (sima szöveg). KÖZBEN NÉZD A SZERVER KONZOLJÁT: ott fut a színes RAG-trace (HyDE → embedding → távolságok → rerank → mennyi szöveg ment a modellnek)."
+      }
+    }
+  ]
+}
