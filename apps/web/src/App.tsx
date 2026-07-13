@@ -3,7 +3,7 @@ import { useChat } from '@ai-sdk/react';
 import { TextStreamChatTransport } from 'ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Leaf, Send } from 'lucide-react';
+import { Leaf, Send, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,7 +29,7 @@ const apiBaseUrl = import.meta.env.VITE_API_URL ?? '';
 const transport = new TextStreamChatTransport({ api: `${apiBaseUrl}/api/chat` });
 
 export default function App() {
-  const { messages, sendMessage, status } = useChat({ transport });
+  const { messages, sendMessage, status, stop } = useChat({ transport });
   const [input, setInput] = useState('');
   const loading = status === 'submitted' || status === 'streaming';
 
@@ -55,7 +55,7 @@ export default function App() {
       <MessageScrollerProvider autoScroll>
         <MessageScroller className="flex-1">
           <MessageScrollerViewport>
-            <MessageScrollerContent className="space-y-3">
+            <MessageScrollerContent>
               {messages.length === 0 && (
                 <p className="text-muted-foreground text-sm">
                   Kérdezz a katalógusról — pl. „mutass 3 pet-safe növényt raktáron, 5000
@@ -103,9 +103,15 @@ export default function App() {
           placeholder="Írd be a kérdésed…"
           disabled={loading}
         />
-        <Button type="submit" size="icon" disabled={loading}>
-          <Send />
-        </Button>
+        {loading ? (
+          <Button type="button" size="icon" onClick={() => stop()}>
+            <Square />
+          </Button>
+        ) : (
+          <Button type="submit" size="icon" disabled={input.trim() === ''}>
+            <Send />
+          </Button>
+        )}
       </form>
     </div>
   );
