@@ -163,3 +163,5 @@ A részletek a [`docs/`](docs/) mappában:
 - [`system-prompt.md`](docs/system-prompt.md) — a termék-agent system promptja
 - [`dev-workflow.md`](docs/dev-workflow.md) — git, hookok, dokumentáció
 - [`proposal-implementacio.md`](docs/proposal-implementacio.md) — a fázisolt implementációs terv
+
+<!-- workflow-validációs próba: draft-szűrő + --agent convention-audit (törölhető) -->
