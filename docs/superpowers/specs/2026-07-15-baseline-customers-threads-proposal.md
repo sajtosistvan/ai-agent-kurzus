@@ -4,6 +4,15 @@
 lépésenkénti demózásra, az órán késznek vesszük. Az orchestrator-demó
 (`2026-07-15-orchestrator-demo-design.md`) erre épül.
 
+## Sorrend — az óra dramaturgiája szerint (KÖTÖTT)
+
+1. **Javítási kör** (1. munkacsomag): előbb rendbe tesszük, ami van — higiénia + az
+   `admin=false` holtág feloldása.
+2. **Új alapfunkciók** (2–6. munkacsomag): customers, queryCustomers, threads, perzisztencia,
+   thread-UI.
+3. **Új agent-funkciók** (külön spec: `2026-07-15-orchestrator-demo-design.md`): orchestrator,
+   package-agent, handover-módok, flow-teszt skill. Csak a fenti kettő UTÁN kezdődik.
+
 ## Kapcsolat az orchestrator-spec-kel
 
 - Az ott tervezett `clients` táblát **ez a proposal váltja ki `customers` néven** (bővebb,
@@ -11,10 +20,33 @@ lépésenkénti demózásra, az órán késznek vesszük. Az orchestrator-demó
 - A mainen már UI message stream + typed tool-partok futnak (`pipeUIMessageStreamToResponse`,
   tool-chipek a UI-ban) — az orchestrator-spec 6. fejezetének protokoll-váltása részben kész;
   a thread-perzisztencia erre a protokollra épül.
+- Az `admin=false` holtág feloldása ide került át (J0) — az orchestrator-branch már működő
+  multi-agent kapoccsal indul.
 
 ---
 
-## 1. munkacsomag — `customers` tábla + seed (20 értelmes sor)
+## 1. munkacsomag — javítási kör a meglévő kódon
+
+A 2026-07-15-ös main-review alapján. A J0 kivételével minden tétel viselkedés-semleges —
+az appra rá kell ismerni.
+
+| # | Mit | Honnan (review) |
+|---|---|---|
+| **J0** | **`query-agent.ts:42` `admin=false` holtág feloldása:** vissza `isAdmin(role)`-ra, ahogy a fájl kommentje ígéri — adminként bekerül a `delegateToIngest` a toolsetbe (`maxSteps` is role-függő). Egyben: a prompt ÉS a toolset ugyanabból a role-értékből épüljön (egy forrás), hogy ne csúszhassanak el. A fájl-kommentek a valósághoz igazítva. | M3 |
+| J1 | `apps/server/src/main.ts:24-31` fejléckomment átírása a tool-stream valóságra | M4 |
+| J2 | `chunk.ts:55` nem létező fájlra hivatkozó komment javítása | K1 |
+| J3 | Közös ANSI szín-helper: a `retrieve.ts` nyers escape-jei a `trace.ts` `c` helperére állnak | K2 |
+| J4 | `echo.ts` törlése (index-exporttal együtt) — halott kód elavult kommenttel | K4 |
+| J5 | `ingest-knowledge.ts:113` súgó-port 3000 → 3001 | K5 |
+| J6 | `App.tsx` render-blokk: `splitAssistantParts()` segéd + szűk `ToolUIPart` típus, `console.log` jelölése/kivétele | K6 |
+| J7 | Gyökér-takarítás: `git rm -r --cached .playwright-mcp/ embed-demo.json postman/ railpack.*.json` + az összeragadt `.gitignore`-sor kettébontása | M5 |
+| J8 | Doksi-szinkron: README/architektura/stack — Vercel AI SDK 6 a valóság; RAG-réteg + server/web átvezetése; scripts-tábla pótlása | M1, M2, K9 |
+| J9 | `seed/` gyökér-mappa: explicit „starter-kit, az élő forrás a packages/db" jelölés a README-jében (törlés helyett — kurzus-történeti érték) | K7 |
+| J10 | Tool-leírások átolvasása és életszerűsítés — szövegváltozás, nem logika | — |
+
+**Tudatosan NEM része:** a `trace.ts` szétbontása (K3) — kockázatosabb refaktor, külön kör.
+
+## 2. munkacsomag — `customers` tábla + seed (20 értelmes sor)
 
 **Prisma model** (`packages/db/prisma/schema.prisma`):
 
@@ -44,7 +76,7 @@ a mai három kód (ACME, GLOBEX, INITECH) megmarad kompatibilitásból. Változa
 (15 000 – 800 000 Ft), legyen szűk keretű és allergiás/kisgyerekes profil is, a `notes` mindig
 mondjon valami döntés-befolyásolót (fényviszony, stílus, öntözési hajlandóság).
 
-## 2. munkacsomag — `queryCustomers` tool
+## 3. munkacsomag — `queryCustomers` tool
 
 `packages/core/src/lib/tools/query-customers/query-customers-tool.ts` (+ spec):
 
@@ -58,7 +90,7 @@ mondjon valami döntés-befolyásolót (fényviszony, stílus, öntözési hajla
   a promptban a hivatkozás átírása. (A fix CLIENT_PREFERENCES térkép törlődik — az adat a
   DB-ben él.)
 
-## 3. munkacsomag — `threads` + `messages` táblák
+## 4. munkacsomag — `threads` + `messages` táblák
 
 ```prisma
 model Thread {
@@ -88,7 +120,7 @@ model Message {
 szöveg), és a szerver ebből állítja vissza a modell-előzményt is (`convertToModelMessages` a
 data/tool-partok szűrésével). Egy oszlop, nincs külön tool-call tábla — demóhoz ennyi kell.
 
-## 4. munkacsomag — szerver: perzisztencia + thread API
+## 5. munkacsomag — szerver: perzisztencia + thread API
 
 A szerver eddig stateless volt (a kliens küldte a teljes előzményt). Mostantól **a DB az
 igazságforrás**, a kliens csak az új üzenetet küldi:
@@ -104,7 +136,7 @@ igazságforrás**, a kliens csak az új üzenetet küldi:
 - Hiba-ág: ismeretlen `threadId` → 404 magyar üzenettel; a chat-handler soha nem hagy
   válasz nélküli user-üzenetet az adatbázisban (agent-hiba esetén hibaszöveg-üzenet mentődik).
 
-## 5. munkacsomag — web: thread-lista + URL-betöltés
+## 6. munkacsomag — web: thread-lista + URL-betöltés
 
 - **URL-séma:** `?thread=<id>` (nincs router-lib — `URLSearchParams` + `history.replaceState`).
   Betöltéskor ha van `thread` param: `GET /api/threads/:id` → a useChat `messages` induló
@@ -115,38 +147,18 @@ igazságforrás**, a kliens csak az új üzenetet küldi:
 - A transport körül egy kis módosítás: a `prepareSendMessagesRequest`-tel csak az utolsó
   üzenet + `threadId` megy fel (a teljes history küldése megszűnik).
 
-## 6. munkacsomag — higiéniai kör (logika-átírás NÉLKÜL)
-
-A 2026-07-15-ös main-review alapján, csak olyan tételek, amik nem változtatnak viselkedést —
-az appra rá kell ismerni:
-
-| # | Mit | Honnan (review) |
-|---|---|---|
-| H1 | `apps/server/src/main.ts:24-31` fejléckomment átírása a tool-stream valóságra | M4 |
-| H2 | `chunk.ts:55` nem létező fájlra hivatkozó komment javítása | K1 |
-| H3 | Közös ANSI szín-helper: a `retrieve.ts` nyers escape-jei a `trace.ts` `c` helperére állnak | K2 |
-| H4 | `echo.ts` törlése (index-exporttal együtt) — halott kód elavult kommenttel | K4 |
-| H5 | `ingest-knowledge.ts:113` súgó-port 3000 → 3001 | K5 |
-| H6 | `App.tsx` render-blokk: `splitAssistantParts()` segéd + szűk `ToolUIPart` típus, `console.log` jelölése/kivétele | K6 |
-| H7 | Gyökér-takarítás: `git rm -r --cached .playwright-mcp/ embed-demo.json postman/ railpack.*.json` + az összeragadt `.gitignore`-sor kettébontása | M5 |
-| H8 | Doksi-szinkron: README/architektura/stack — Vercel AI SDK 6 a valóság; RAG-réteg + server/web átvezetése; scripts-tábla pótlása | M1, M2, K9 |
-| H9 | `seed/` gyökér-mappa: explicit „starter-kit, az élő forrás a packages/db" jelölés a README-jében (törlés helyett — kurzus-történeti érték) | K7 |
-| H10 | Tool-leírások átolvasása és életszerűsítés (pl. ügyfél-hivatkozás a queryCustomers-re) — szövegváltozás, nem logika | — |
-
-**Tudatosan NEM része:** az `admin=false` holtág feloldása (M3) — az logikai változás, az
-orchestrator-branch nyitó lépése lesz; a `trace.ts` szétbontása (K3) — kockázatosabb refaktor,
-külön kör.
-
 ## Sorrend és tesztek
 
-1. Prisma migráció (customers + threads + messages) + seed → `pnpm db:reset` zölden.
-2. `queryCustomers` tool + spec; `getClientPreferences` kivezetése (spec-ek frissítése).
-3. Szerver: `threads.ts` + chat-handler átállás DB-előzményre (Vitest a thread-CRUD-ra és a
+1. **Javítási kör (J0–J10)** — apró, független commitok; J0 után a `delegate-to-ingest`
+   spec-jei és a role-os ág Vitest-tel lefedve; `pnpm test` + `pnpm typecheck` zölden.
+2. Prisma migráció (customers + threads + messages) + seed → `pnpm db:reset` zölden.
+3. `queryCustomers` tool + spec; `getClientPreferences` kivezetése (spec-ek frissítése).
+4. Szerver: `threads.ts` + chat-handler átállás DB-előzményre (Vitest a thread-CRUD-ra és a
    title-vágásra; a chat-handler agent-hívása mockolva).
-4. Web: URL-betöltés + thread-lista.
-5. Higiéniai kör (H1-H10) — apró, független commitok.
+5. Web: URL-betöltés + thread-lista.
 6. Kézi füstteszt: új beszélgetés → URL-be kerül az id → reload → chipekkel együtt visszajön →
    thread-listából másik beszélgetés betölt.
+7. Ezután indulhat az orchestrator-spec implementációja (külön branch, erről ágazva).
 
 **Branch:** `feat/baseline-threads-customers` (push külön jelzésre). Az orchestrator-demó
 branch erről ágazik majd.
