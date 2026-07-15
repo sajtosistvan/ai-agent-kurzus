@@ -7,7 +7,7 @@ import {
 } from '../agent-loop.js';
 import { runSqlTool } from '../../tools/run-sql/run-sql-tool.js';
 import { searchKnowledgeTool } from '../../tools/search-knowledge/search-knowledge-tool.js';
-import { getClientPreferencesTool } from '../../tools/get-client-preferences/get-client-preferences-tool.js';
+import { queryCustomersTool } from '../../tools/query-customers/query-customers-tool.js';
 import { delegateToIngestTool } from '../../tools/delegate-to-ingest/delegate-to-ingest-tool.js';
 import { CURRENT_ROLE, type UserRole, isAdmin } from '../../user-role/user-role.js';
 import type { ToolReporter } from '../../tools/tool-outcome.js';
@@ -15,7 +15,7 @@ import type { ToolReporter } from '../../tools/tool-outcome.js';
 // query-agent.ts — a KÉRDÉS-VÁLASZ agent (a termék "ask" oldala). READ-ONLY: természetes
 // nyelvű kérdésből SQL-t ír, lefuttatja, magyarul válaszol. Egy agent = prompt + toolok + loop:
 //   prompt:  query-prompt.ts (szerep, séma, SQL-szabályok)
-//   toolok:  runSql (read-only SELECT) + getClientPreferences (ügyfél-preferenciák)
+//   toolok:  runSql (read-only SELECT) + queryCustomers (ügyfél-profilok, Prismán át)
 //            + admin szerepnél: delegateToIngest (a MÁSIK agent tool-ként — multi-agent)
 //   loop:    a közös agent-loop (agent-loop.ts)
 //
@@ -41,7 +41,7 @@ export function buildQueryToolset(
     runSql: runSqlTool(report),
     // A tudás-oldal: szöveges gondozási cikkek (RAG). A párja a runSql — a modell választ.
     searchKnowledge: searchKnowledgeTool(report),
-    getClientPreferences: getClientPreferencesTool(report),
+    queryCustomers: queryCustomersTool(report),
     // Admin szerep → a MÁSIK agent tool-ként. Vásárlónál ez a kulcs nincs az objektumban.
     ...(isAdmin(role)
       ? { delegateToIngest: delegateToIngestTool(report, { print: options.print }) }

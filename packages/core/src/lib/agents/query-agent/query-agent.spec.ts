@@ -6,7 +6,7 @@ describe('buildQueryToolset', () => {
     expect(Object.keys(tools)).toEqual([
       'runSql',
       'searchKnowledge',
-      'getClientPreferences',
+      'queryCustomers',
     ]);
   });
 
