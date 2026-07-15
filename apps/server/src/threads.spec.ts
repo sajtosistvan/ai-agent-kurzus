@@ -1,4 +1,4 @@
-import { clipTitle, rowToUIMessage, stripDataParts } from './threads.js';
+import { clipTitle, rowToUIMessage, stripDataParts, dropTrailingUserRow } from './threads.js';
 
 describe('clipTitle', () => {
   it('rövid szöveget változatlanul hagy', () => {
@@ -30,5 +30,24 @@ describe('stripDataParts', () => {
       ] } as never,
     ]);
     expect(m.parts).toEqual([{ type: 'text', text: 'szia' }]);
+  });
+});
+
+describe('dropTrailingUserRow', () => {
+  it('eldobja a válasz nélkül maradt záró user-sort', () => {
+    const rows = [
+      { role: 'user' },
+      { role: 'assistant' },
+      { role: 'user' }, // korábbi hibás futás maradéka
+    ];
+    expect(dropTrailingUserRow(rows)).toEqual([{ role: 'user' }, { role: 'assistant' }]);
+  });
+  it('assistant-ra végződő előzményt változatlanul hagy', () => {
+    const rows = [{ role: 'user' }, { role: 'assistant' }];
+    expect(dropTrailingUserRow(rows)).toEqual(rows);
+    expect(dropTrailingUserRow(rows)).toBe(rows); // nincs fölösleges másolat
+  });
+  it('üres listát üresen ad vissza', () => {
+    expect(dropTrailingUserRow([])).toEqual([]);
   });
 });

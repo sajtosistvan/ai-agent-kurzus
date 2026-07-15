@@ -14,15 +14,17 @@ import {
   ConfigError,
   closeReadOnlyPool,
   closeReadWritePool,
+  getPrisma,
+  closePrisma,
   setWatchLog,
 } from '@plantbase/core';
 import { debugKnowledgeRouter } from './debug-knowledge.js';
 import {
   threadsRouter,
-  getServerPrisma,
   clipTitle,
   rowToUIMessage,
   stripDataParts,
+  dropTrailingUserRow,
 } from './threads.js';
 
 // server/main.ts — VÉKONY HTTP-réteg a core agent fölött. A böngészőből érkező kérdés PONTOSAN
@@ -82,7 +84,8 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  const prisma = getServerPrisma();
+  // A core közös Prisma-kliense — a toolok és a threads router is ugyanezt használja.
+  const prisma = getPrisma();
   try {
     // (1) Thread: meglévő betöltése vagy új nyitása — a cím az első kérdésből.
     const thread = threadId
@@ -98,8 +101,10 @@ app.post('/api/chat', async (req, res) => {
       where: { threadId: thread.id },
       orderBy: { createdAt: 'asc' },
     });
+    // Ha egy korábbi futás hibázott, lógó user-üzenet maradhatott a végén — azt kihagyjuk,
+    // különben két user-kör kerülne egymás után az előzménybe.
     const history = await convertToModelMessages(
-      stripDataParts(priorRows.map(rowToUIMessage)),
+      stripDataParts(dropTrailingUserRow(priorRows).map(rowToUIMessage)),
     );
 
     // (3) A user-üzenet mentése — a válasz sikerétől függetlenül megmarad.
@@ -124,15 +129,20 @@ app.post('/api/chat', async (req, res) => {
         });
       },
       onFinish: async ({ responseMessage }) => {
-        await prisma.message.create({
-          data: {
-            threadId: thread.id,
-            role: 'assistant',
-            parts: responseMessage.parts as object,
-          },
-        });
-        // frissesség a listához
-        await prisma.thread.update({ where: { id: thread.id }, data: { updatedAt: new Date() } });
+        // Saját try/catch: a stream közben elszálló mentés ne legyen kezeletlen rejection.
+        try {
+          await prisma.message.create({
+            data: {
+              threadId: thread.id,
+              role: 'assistant',
+              parts: responseMessage.parts as object,
+            },
+          });
+          // frissesség a listához
+          await prisma.thread.update({ where: { id: thread.id }, data: { updatedAt: new Date() } });
+        } catch (error: unknown) {
+          console.error(`plantbase szerver hiba (mentés): ${String(error)}`);
+        }
       },
       onError: (error) => (error instanceof Error ? error.message : String(error)),
     });
@@ -159,10 +169,10 @@ const server = app.listen(port, () => {
   console.log(`Plantbase szerver fut: http://localhost:${port}`);
 });
 
-// Tiszta leállás: a pg-poolokat és a Prisma-kapcsolatot zárjuk, hogy ne maradjon nyitott kapcsolat.
+// Tiszta leállás: a pg-poolokat és a core közös Prisma-kliensét zárjuk, hogy ne maradjon nyitott kapcsolat.
 async function shutdown(): Promise<void> {
   server.close();
-  await Promise.all([closeReadOnlyPool(), closeReadWritePool(), getServerPrisma().$disconnect()]);
+  await Promise.all([closeReadOnlyPool(), closeReadWritePool(), closePrisma()]);
   process.exit(0);
 }
 process.on('SIGINT', shutdown);
