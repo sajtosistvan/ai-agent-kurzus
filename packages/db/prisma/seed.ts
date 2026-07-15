@@ -52,6 +52,10 @@ function toCustomerInput(c: CustomerSeed): Prisma.CustomerCreateInput {
 }
 
 async function main() {
+  // A mentett csomagok FK-val hivatkoznak a termékekre (package_items.product_id) —
+  // előbb azokat töröljük, különben a product.deleteMany FK-hibára fut.
+  await prisma.packageItem.deleteMany();
+  await prisma.package.deleteMany();
   await prisma.product.deleteMany(); // idempotens újraseedeléshez
   const result = await prisma.product.createMany({
     data: plants.map(toProductInput),
