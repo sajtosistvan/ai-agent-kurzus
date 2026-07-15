@@ -1,0 +1,540 @@
+<!--
+  Plantbase — multi-agent topológiák: interaktív, önhordó vizualizáció a kurzus-demóhoz (3 nézet, lépésenkénti lejátszással).
+  Megnyitás: open docs/demo/agent-topologiak.html  (file://-ról is működik, nincs külső függőség).
+  Órai használat: vetítsd ki 16:9-ben, válts a három topológia között, és a lépéslistával / ←→ billentyűkkel vagy a Lejátszás gombbal mutasd be, hogyan aktiválódnak az agentek és toolok.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plantbase — multi-agent topológiák</title>
+<style>
+  :root{
+    --bg:#0b100d; --panel:#111a15; --panel2:#0e1511; --line:#22302a; --ink:#e7f0ea; --ink-dim:#8fa39a;
+    --user:#5ba8f5; --agent:#3fce8f; --agent2:#2ea87a; --orch:#b394f7; --tool:#e6a83c; --shared:#f06fa8;
+    --edge:#3a4a42; --active:#8ff0c3; --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --disp:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 75% -10%, rgba(63,206,143,.07), transparent 60%),
+      radial-gradient(900px 600px at -5% 110%, rgba(179,148,247,.06), transparent 55%),
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(231,240,234,.025) 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, rgba(231,240,234,.025) 39px 40px),
+      var(--bg);
+    color:var(--ink); font-family:var(--mono); font-size:14px;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:28px; padding:14px 26px 12px;
+    border-bottom:1px solid var(--line); flex-wrap:wrap;
+  }
+  h1{font-family:var(--disp); font-weight:600; font-size:24px; letter-spacing:.4px}
+  h1 .leaf{color:var(--agent)}
+  nav{display:flex; gap:6px; margin-left:auto}
+  nav button{
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-dim); background:transparent;
+    border:1px solid var(--line); padding:8px 14px; border-radius:6px; cursor:pointer;
+    transition:all .18s ease; text-align:left; line-height:1.35;
+  }
+  nav button b{display:block; color:var(--ink); font-weight:600}
+  nav button:hover{border-color:var(--agent2)}
+  nav button.sel{background:rgba(63,206,143,.1); border-color:var(--agent); color:var(--ink)}
+  nav button.sel b{color:var(--agent)}
+  nav button:nth-child(3).sel{background:rgba(179,148,247,.12); border-color:var(--orch)}
+  nav button:nth-child(3).sel b{color:var(--orch)}
+  main{flex:1; display:grid; grid-template-columns:1fr 360px; gap:0; min-height:0}
+  #stage{position:relative; min-width:0; padding:8px 4px 4px 12px; display:flex; flex-direction:column}
+  #stage svg{flex:1; width:100%; height:100%; display:none}
+  #stage svg.vis{display:block}
+  aside{
+    border-left:1px solid var(--line); display:flex; flex-direction:column; min-height:0;
+    background:linear-gradient(180deg, rgba(17,26,21,.6), rgba(14,21,17,.9));
+  }
+  #info{padding:16px 18px 12px; border-bottom:1px solid var(--line); min-height:118px}
+  #info .stepno{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim)}
+  #info h2{font-family:var(--disp); font-size:18px; margin:5px 0 7px; font-weight:600}
+  #info p{font-size:12.8px; line-height:1.55; color:#c4d2ca}
+  #steps{flex:1; overflow-y:auto; padding:8px 10px; list-style:none}
+  #steps li{
+    display:flex; gap:10px; align-items:baseline; padding:7px 10px; border-radius:6px;
+    cursor:pointer; color:var(--ink-dim); font-size:12.5px; line-height:1.4; border:1px solid transparent;
+  }
+  #steps li:hover{background:rgba(231,240,234,.04)}
+  #steps li.cur{background:rgba(143,240,195,.08); border-color:rgba(143,240,195,.35); color:var(--ink)}
+  #steps li .n{
+    flex:none; width:20px; height:20px; border:1px solid var(--line); border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink-dim);
+  }
+  #steps li.cur .n{border-color:var(--active); color:var(--active)}
+  #steps li.done .n{border-color:var(--agent2); color:var(--agent2)}
+  #controls{display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--line)}
+  #controls button{
+    font-family:var(--mono); flex:1; padding:9px 0; font-size:13px; border-radius:6px; cursor:pointer;
+    background:var(--panel); color:var(--ink); border:1px solid var(--line); transition:all .15s;
+  }
+  #controls button:hover{border-color:var(--agent2)}
+  #controls #play{flex:1.6; background:rgba(63,206,143,.12); border-color:var(--agent2); color:var(--agent)}
+  #controls #play.playing{background:rgba(230,168,60,.12); border-color:var(--tool); color:var(--tool)}
+  footer{
+    display:flex; gap:20px; align-items:center; padding:8px 26px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--ink-dim); flex-wrap:wrap;
+  }
+  footer .lg{display:inline-flex; align-items:center; gap:7px}
+  footer .sw{width:12px; height:12px; border-radius:3px; display:inline-block}
+  footer .sw.chip{border-radius:8px; height:10px; width:18px}
+  footer kbd{border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:10.5px; color:var(--ink)}
+
+  /* ---- SVG elemek ---- */
+  svg text{font-family:var(--mono); fill:var(--ink); user-select:none}
+  .k{transition:opacity .35s ease}
+  svg.stepped .k{opacity:.16}
+  svg.stepped .k.on{opacity:1}
+  .box{fill:var(--panel); stroke-width:1.6}
+  .k.on .box{stroke-width:2.4; animation:pulse 1.5s ease-in-out infinite}
+  .k.on{filter:drop-shadow(0 0 10px rgba(143,240,195,.25))}
+  @keyframes pulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.4}}
+  .cont{fill:rgba(63,206,143,.03); stroke:var(--agent2); stroke-dasharray:7 6; stroke-width:1.2}
+  .contlab{font-size:11px; fill:var(--ink-dim); letter-spacing:.8px}
+  .ntitle{font-size:17px; font-weight:600}
+  .nsub{font-size:11px; fill:var(--ink-dim)}
+  .chipbox{stroke-width:1.3}
+  .chip.tool .chipbox{fill:rgba(230,168,60,.1); stroke:var(--tool)}
+  .chip.tool text{fill:#f0c179}
+  .chip.shared .chipbox{fill:rgba(240,111,168,.1); stroke:var(--shared)}
+  .chip.shared text{fill:#f79cc4}
+  .chip.agenttool .chipbox{fill:rgba(230,168,60,.08); stroke:var(--agent); stroke-dasharray:4 3}
+  .chip.agenttool text{fill:#8fe6bd}
+  .chip text{font-size:12.5px}
+  .edge path{fill:none; stroke:var(--edge); stroke-width:2; marker-end:url(#arr)}
+  .edge.on path{stroke:var(--active); stroke-width:3; marker-end:url(#arrOn); stroke-dasharray:9 7; animation:flow .8s linear infinite}
+  .edge.sharedge path{stroke:var(--shared); stroke-dasharray:3 6; marker-end:none; opacity:.75}
+  .edge.sharedge.on path{stroke:var(--shared); stroke-width:3; marker-end:none; animation:flow 1.2s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-16}}
+  .elab{font-size:11.5px; fill:var(--ink-dim); paint-order:stroke; stroke:var(--bg); stroke-width:5px; text-anchor:middle}
+  .edge.on .elab{fill:var(--active)}
+  .edge.sharedge .elab{fill:var(--shared)}
+  .annot{font-size:11.5px; fill:var(--ink-dim); font-style:italic}
+</style>
+
+<header>
+  <h1><span class="leaf">❧</span> Plantbase — multi-agent topológiák</h1>
+  <nav id="tabs"></nav>
+</header>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,4 L0,8 z" fill="#4a5c52"/>
+    </marker>
+    <marker id="arrOn" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,4 L0,8 z" fill="var(--active)"/>
+    </marker>
+  </defs>
+</svg>
+
+<main>
+  <section id="stage"></section>
+  <aside>
+    <div id="info">
+      <div class="stepno" id="stepno"></div>
+      <h2 id="steptitle"></h2>
+      <p id="stepdesc"></p>
+    </div>
+    <ol id="steps"></ol>
+    <div id="controls">
+      <button id="prev" title="Előző lépés (←)">← Előző</button>
+      <button id="play">▶ Lejátszás</button>
+      <button id="next" title="Következő lépés (→)">Következő →</button>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <span class="lg"><span class="sw" style="background:var(--user)"></span> User</span>
+  <span class="lg"><span class="sw" style="background:var(--agent)"></span> Agent</span>
+  <span class="lg"><span class="sw" style="background:var(--orch)"></span> Orchestrator</span>
+  <span class="lg"><span class="sw chip" style="border:1.5px solid var(--tool); background:rgba(230,168,60,.15)"></span> Tool</span>
+  <span class="lg"><span class="sw chip" style="border:1.5px dashed var(--agent); background:rgba(230,168,60,.1)"></span> Tool, ami agentet indít</span>
+  <span class="lg"><span class="sw chip" style="border:1.5px solid var(--shared); background:rgba(240,111,168,.15)"></span> Megosztott tool</span>
+  <span style="margin-left:auto">Léptetés: <kbd>←</kbd> <kbd>→</kbd> · Nézetváltás: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span>
+</footer>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/* Adatmodell — három topológia                                        */
+/* ------------------------------------------------------------------ */
+
+const COLORS = {
+  user:  getCss('--user'),  agent: getCss('--agent'),
+  orch:  getCss('--orch'),  tool:  getCss('--tool')
+};
+function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+const VIEWS = [
+{
+  id:'v1',
+  tab:['1 · Jelen állás','hierarchikus delegálás (master–slave)'],
+  nodes:[
+    {id:'u', kind:'user',  x:40,  y:250, w:150, h:130, label:'User'},
+    {id:'q', kind:'agent', x:270, y:170, w:340, h:300, label:'Query agent', sub:'master — övé a beszélgetés',
+     tools:[{id:'runSql',label:'runSql'},{id:'searchKnowledge',label:'searchKnowledge'},
+            {id:'getClientPreferences',label:'getClientPreferences'},
+            {id:'delegateToIngest',label:'delegateToIngest',cls:'agenttool'}]},
+    {id:'i', kind:'agent', x:730, y:210, w:470, h:250, label:'Ingest agent', sub:'slave — toolként fut, saját loop',
+     tools:[{id:'fetchFeed',label:'fetchFeed'},{id:'runSql',label:'runSql'},{id:'upsertProduct',label:'upsertProduct'}]}
+  ],
+  containers:[{id:'cont', x:692, y:140, w:548, h:370, label:'BEÁGYAZOTT FUTÁS — a tool alatt egy teljes agent-loop'}],
+  annots:[{x:700, y:535, text:'A hierarchia egyirányú: a master indít, a slave csak neki válaszolhat.'}],
+  edges:[
+    {id:'e1', from:{n:'u',s:'r',dy:-18}, to:{n:'q',s:'l',dy:-25}, label:'kérdés'},
+    {id:'e2', from:{n:'q',t:'delegateToIngest',s:'r'}, to:{n:'i',s:'l'}, label:'agent-hívás', lt:0.72},
+    {id:'e3', from:{n:'i',s:'t'}, to:{n:'q',s:'t'}, label:'összegzés vissza'},
+    {id:'e4', from:{n:'q',s:'l',dy:30}, to:{n:'u',s:'r',dy:25}, label:'válasz'}
+  ],
+  steps:[
+    {t:'A user kérdez', k:['u','e1','q'],
+     d:'A kérdés a Query agenthez fut be — mindig ő a belépési pont, övé a teljes beszélgetés.'},
+    {t:'A Query agent dolgozik', k:['q','q.runSql','q.searchKnowledge','q.getClientPreferences'],
+     d:'Saját tooljaival dolgozik: SQL a katalóguson, tudásbázis-keresés, ügyfél-preferenciák. Eddig ez sima single-agent loop.'},
+    {t:'Delegálás — tool, ami agentet indít', k:['q.delegateToIngest','e2','q'],
+     d:'A delegateToIngest kívülről ugyanolyan tool, mint a runSql. Belül viszont egy másik agentet indít el — ez a hierarchikus minta kulcsa.'},
+    {t:'Az Ingest agent elindul', k:['cont','i'],
+     d:'A tool-hívás alatt egy teljes, önálló agent-loop pörög: saját prompt, saját toolok, saját lépéskorlát. A master eközben „vár”.'},
+    {t:'fetchFeed — külső adat', k:['i','i.fetchFeed'],
+     d:'Az Ingest agent lehúzza a Shopify-feedet (tropicalhome.hu / thesill.com) és kiszűri a növényeket.'},
+    {t:'Írás a katalógusba', k:['i','i.runSql','i.upsertProduct'],
+     d:'Ellenőrzi a jelenlegi állapotot (runSql), majd az egyetlen írási úton, az upsertProduct toolon keresztül ír.'},
+    {t:'Összegzés vissza a masternek', k:['e3','i','q'],
+     d:'A slave nem a usernek válaszol: az eredmény-összegzés tool-eredményként érkezik vissza a Query agent loopjába.'},
+    {t:'Válasz a usernek', k:['q','e4','u'],
+     d:'A Query agent a saját kontextusában fogalmazza meg a magyar választ. A user végig egyetlen agenttel „beszélt”.'}
+  ]
+},
+{
+  id:'v2',
+  tab:['2 · Tool-alapú delegálás','peer / mesh'],
+  nodes:[
+    {id:'u', kind:'user',  x:40,  y:260, w:150, h:130, label:'User'},
+    {id:'c', kind:'agent', x:260, y:140, w:380, h:360, label:'Csomag-agent', sub:'egyenrangú (peer)',
+     tools:[{id:'queryCustomers',label:'queryCustomers'},{id:'validatePackage',label:'validatePackage'},
+            {id:'savePackage',label:'savePackage'},{id:'cancelPackage',label:'cancelPackage'},
+            {id:'askInfoAgent',label:'askInfoAgent',cls:'agenttool'}]},
+    {id:'i', kind:'agent', x:760, y:230, w:450, h:240, label:'Info-agent', sub:'egyenrangú (peer)',
+     tools:[{id:'runSql',label:'runSql'},{id:'searchKnowledge',label:'searchKnowledge'},
+            {id:'queryCustomers',label:'queryCustomers'}]}
+  ],
+  containers:[{id:'cont', x:722, y:165, w:528, h:335, label:'AZ INFO-AGENT SAJÁT LOOPOT FUTTAT'}],
+  annots:[{x:722, y:528, text:'Nincs karmester: agent hív agentet toolként — az irány feladatonként más lehet.'}],
+  edges:[
+    {id:'e1', from:{n:'u',s:'r',dy:-18}, to:{n:'c',s:'l',dy:-35}, label:'kérdés'},
+    {id:'e2', from:{n:'c',t:'askInfoAgent',s:'r'}, to:{n:'i',s:'l'}, label:'agent-hívás', lt:0.72},
+    {id:'e3', from:{n:'i',s:'t'}, to:{n:'c',s:'t'}, label:'válasz vissza'},
+    {id:'e4', from:{n:'c',s:'l',dy:45}, to:{n:'u',s:'r',dy:25}, label:'válasz'}
+  ],
+  steps:[
+    {t:'A user kérdez', k:['u','e1','c'],
+     d:'A csomagösszeállítási kérés a Csomag-agenthez érkezik — most ő a belépési pont, de ez nem kőbe vésett szerep.'},
+    {t:'Ügyféladat: queryCustomers', k:['c','c.queryCustomers'],
+     d:'A Csomag-agent a saját tooljával megnézi az ügyfél adatait és a korábbi rendeléseket.'},
+    {t:'askInfoAgent — kérdés a társnak', k:['c.askInfoAgent','e2'],
+     d:'Növény-szakértelemre van szüksége, ezért toolként meghívja az egyenrangú Info-agentet. Nem parancs — kérdés egy társnak.'},
+    {t:'Az Info-agent saját loopot indít', k:['cont','i'],
+     d:'Az Info-agent önálló loopban dolgozik a saját promptjával és tooljaival — a Csomag-agent belső lépéseit nem látja, csak a végeredményt kapja.'},
+    {t:'runSql — katalógus-lekérdezés', k:['i','i.runSql'],
+     d:'Az Info-agent SQL-lel kérdezi a növénykatalógust: mi van raktáron, mi fér a keretbe.'},
+    {t:'searchKnowledge — gondozási tudás', k:['i','i.searchKnowledge'],
+     d:'A tudásbázisból kiegészíti: fényigény, pet-safe szempontok, gondozási nehézség.'},
+    {t:'Strukturált válasz vissza', k:['e3','i','c'],
+     d:'Az Info-agent válasza tool-eredményként landol a Csomag-agent loopjában — pont mint bármely más tool kimenete.'},
+    {t:'Validálás és mentés', k:['c','c.validatePackage','c.savePackage'],
+     d:'A Csomag-agent összeállítja a csomagot, validálja az üzleti szabályok szerint, majd elmenti.'},
+    {t:'Válasz a usernek', k:['c','e4','u'],
+     d:'A végső választ a Csomag-agent adja. Mesh-minta: bármely agent hívhat bármely másikat — központi irányítás nélkül.'}
+  ]
+},
+{
+  id:'v3',
+  tab:['3 · Orchestrator','csillagpont'],
+  nodes:[
+    {id:'u', kind:'user',  x:40,  y:270, w:150, h:130, label:'User'},
+    {id:'o', kind:'orch',  x:270, y:230, w:290, h:210, label:'Orchestrator', sub:'soha nem válaszol — csak irányít',
+     tools:[{id:'routeTo',label:'routeTo'}]},
+    {id:'i', kind:'agent', x:690, y:56,  w:545, h:200, label:'Info-agent', sub:'katalógus + tudásbázis',
+     tools:[{id:'runSql',label:'runSql'},{id:'searchKnowledge',label:'searchKnowledge'},
+            {id:'queryCustomers',label:'queryCustomers',cls:'shared'}]},
+    {id:'c', kind:'agent', x:690, y:368, w:545, h:230, label:'Csomag-agent', sub:'csomagok összeállítása',
+     tools:[{id:'validatePackage',label:'validatePackage'},{id:'savePackage',label:'savePackage'},
+            {id:'cancelPackage',label:'cancelPackage'},{id:'requestInfo',label:'requestInfo',cls:'agenttool'},
+            {id:'queryCustomers',label:'queryCustomers',cls:'shared'}]}
+  ],
+  containers:[],
+  annots:[{x:280, y:470, text:'Minden labdamenet az orchestratoron át megy.'}],
+  edges:[
+    {id:'euo', from:{n:'u',s:'r',dy:-22}, to:{n:'o',s:'l',dy:-28}, label:'kérdés'},
+    {id:'eou', from:{n:'o',s:'l',dy:32},  to:{n:'u',s:'r',dy:26}, label:'végső válasz'},
+    {id:'eoi', from:{n:'o',s:'r',dy:-48}, to:{n:'i',s:'l',dy:12}, label:'routeTo'},
+    {id:'eio', from:{n:'i',s:'l',dy:44},  to:{n:'o',s:'r',dy:-18}, label:'válasz'},
+    {id:'eoc', from:{n:'o',s:'r',dy:16},  to:{n:'c',s:'l',dy:-32}, label:'routeTo'},
+    {id:'eco', from:{n:'c',s:'l',dy:32},  to:{n:'o',s:'r',dy:48}, label:'kész'},
+    {id:'ereq', from:{n:'c',t:'requestInfo',s:'l'}, to:{n:'o',s:'b',dx:44}, label:'adatigény'},
+    {id:'esh', from:{n:'i',t:'queryCustomers',s:'b'}, to:{n:'c',t:'queryCustomers',s:'t'},
+     cls:'sharedge', label:'megosztott tool'}
+  ],
+  steps:[
+    {t:'A user kérdez', k:['u','euo','o'],
+     d:'Minden kérés az Orchestratorhoz fut be. Ő a csillagpont: sosem válaszol a usernek, csak dönt és irányít.'},
+    {t:'routeTo — útválasztási döntés', k:['o','o.routeTo','eoc','c'],
+     d:'Az Orchestrator egyetlen toolja a routeTo. Felismeri, hogy csomag-feladat érkezett, és a Csomag-agenthez irányít.'},
+    {t:'A Csomag-agent dolgozni kezd', k:['c','c.queryCustomers','esh'],
+     d:'A Csomag-agent a queryCustomers toollal indít — figyeld meg: ez MEGOSZTOTT tool, ugyanez a példány az Info-agentnél is ott van (rózsaszín jelölés).'},
+    {t:'requestInfo — adatigény jelzése', k:['c.requestInfo','ereq','o'],
+     d:'Növény-adat kell, de a Csomag-agent nem hívhatja közvetlenül a társát: a requestInfo toollal az Orchestratornak jelez.'},
+    {t:'Az Orchestrator átirányít', k:['o','o.routeTo','eoi','i'],
+     d:'Az Orchestrator felveszi a labdát és a routeTo-val az Info-agenthez ugrik, továbbadva a konkrét adatigényt.'},
+    {t:'runSql — az Info-agent lekérdez', k:['i','i.runSql'],
+     d:'Az Info-agent a katalóguson fut le: raktárkészlet, ár, pet-safe szűrés — amit a csomaghoz kértek.'},
+    {t:'Labdamenet vissza', k:['eio','o','eoc','c'],
+     d:'A válasz az Orchestratoron keresztül pattan vissza a Csomag-agenthez. Minden csere rajta megy át — ezért átlátható és auditálható.'},
+    {t:'validatePackage', k:['c','c.validatePackage'],
+     d:'A Csomag-agent a friss adatokkal validálja a csomagot az üzleti szabályok szerint (keret, készlet, kompatibilitás).'},
+    {t:'savePackage', k:['c','c.savePackage'],
+     d:'A validált csomagot elmenti — ez az egyetlen írási művelet a folyamatban.'},
+    {t:'Végső válasz a usernek', k:['c','eco','o','eou','u'],
+     d:'A kész eredmény az Orchestratoron át jut a userhez. A csillag-topológia ára a plusz körök — cserébe egy helyen kontrollálható minden.'}
+  ]
+}
+];
+
+/* ------------------------------------------------------------------ */
+/* SVG renderelés                                                      */
+/* ------------------------------------------------------------------ */
+
+const VB_W = 1280, VB_H = 640;
+const NS = 'http://www.w3.org/2000/svg';
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function chipW(label){ return Math.round(label.length * 7.7) + 28; }
+
+function kindColor(kind){
+  return kind === 'user' ? COLORS.user : kind === 'orch' ? COLORS.orch : COLORS.agent;
+}
+
+/* Chipek elrendezése a node dobozán belül; visszaadja a chip-téglalapokat. */
+function layoutChips(node){
+  const chips = [];
+  if (!node.tools) return chips;
+  const x0 = node.x + 18, xMax = node.x + node.w - 18;
+  let cx = x0, cy = node.y + 82;
+  for (const t of node.tools){
+    const w = chipW(t.label);
+    if (cx + w > xMax){ cx = x0; cy += 44; }
+    chips.push({ ...t, x: cx, y: cy, w, h: 32, key: node.id + '.' + t.id });
+    cx += w + 12;
+  }
+  return chips;
+}
+
+function anchor(rect, side, dx, dy){
+  const p = { x: rect.x, y: rect.y };
+  if (side === 'r'){ p.x += rect.w;      p.y += rect.h / 2; }
+  if (side === 'l'){                     p.y += rect.h / 2; }
+  if (side === 't'){ p.x += rect.w / 2;                     }
+  if (side === 'b'){ p.x += rect.w / 2;  p.y += rect.h;     }
+  return { x: p.x + (dx || 0), y: p.y + (dy || 0), side };
+}
+
+const DIRV = { l:[-1,0], r:[1,0], t:[0,-1], b:[0,1] };
+
+function edgePath(a, b, lt){
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const k = Math.min(170, Math.max(45, dist * 0.42));
+  const [ax, ay] = DIRV[a.side], [bx, by] = DIRV[b.side];
+  const c1 = { x: a.x + ax * k, y: a.y + ay * k };
+  const c2 = { x: b.x + bx * k, y: b.y + by * k };
+  /* címke a görbe lt paraméterű pontjánál (alapból a felezőpont) */
+  const t = lt == null ? 0.5 : lt, u = 1 - t;
+  const bez = (p0, p1, p2, p3) => u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
+  const mid = { x: bez(a.x, c1.x, c2.x, b.x), y: bez(a.y, c1.y, c2.y, b.y) };
+  return { d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`, mid };
+}
+
+function userGlyph(n){
+  const cx = n.x + n.w / 2, cy = n.y + 42;
+  return `<circle cx="${cx}" cy="${cy}" r="15" fill="none" stroke="${COLORS.user}" stroke-width="2.2"/>
+    <path d="M ${cx - 24} ${cy + 46} Q ${cx} ${cy + 12} ${cx + 24} ${cy + 46}"
+          fill="none" stroke="${COLORS.user}" stroke-width="2.2" stroke-linecap="round"/>`;
+}
+
+function renderView(view){
+  const rects = {};   /* node-id és chip-key → téglalap */
+  let sNodes = '', sChips = '', sConts = '', sEdges = '', sAnnots = '';
+
+  for (const c of (view.containers || [])){
+    sConts += `<g class="k" data-k="${c.id}">
+      <rect class="cont" x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="14"/>
+      <text class="contlab" x="${c.x + 18}" y="${c.y - 10}">${esc(c.label)}</text>
+    </g>`;
+  }
+
+  for (const n of view.nodes){
+    rects[n.id] = n;
+    const col = kindColor(n.kind);
+    let inner;
+    if (n.kind === 'user'){
+      inner = userGlyph(n) +
+        `<text class="ntitle" x="${n.x + n.w / 2}" y="${n.y + n.h - 18}" text-anchor="middle" fill="${COLORS.user}">${esc(n.label)}</text>`;
+    } else {
+      inner = `<text class="ntitle" x="${n.x + 20}" y="${n.y + 36}" fill="${col}">${esc(n.label)}</text>` +
+        (n.sub ? `<text class="nsub" x="${n.x + 20}" y="${n.y + 56}">${esc(n.sub)}</text>` : '');
+    }
+    sNodes += `<g class="k" data-k="${n.id}">
+      <rect class="box" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="14" stroke="${col}"/>
+      ${inner}
+    </g>`;
+
+    for (const ch of layoutChips(n)){
+      rects[ch.key] = ch;
+      sChips += `<g class="k chip ${ch.cls || 'tool'}" data-k="${ch.key}">
+        <rect class="chipbox" x="${ch.x}" y="${ch.y}" width="${ch.w}" height="${ch.h}" rx="16"/>
+        <text x="${ch.x + ch.w / 2}" y="${ch.y + 21}" text-anchor="middle">${esc(ch.label)}</text>
+      </g>`;
+    }
+  }
+
+  for (const e of view.edges){
+    const rA = e.from.t ? rects[e.from.n + '.' + e.from.t] : rects[e.from.n];
+    const rB = e.to.t   ? rects[e.to.n   + '.' + e.to.t]   : rects[e.to.n];
+    const a = anchor(rA, e.from.s, e.from.dx, e.from.dy);
+    const b = anchor(rB, e.to.s,   e.to.dx,   e.to.dy);
+    const { d, mid } = edgePath(a, b, e.lt);
+    sEdges += `<g class="k edge ${e.cls || ''}" data-k="${e.id}">
+      <path d="${d}"/>
+      ${e.label ? `<text class="elab" x="${mid.x}" y="${mid.y - 8}">${esc(e.label)}</text>` : ''}
+    </g>`;
+  }
+
+  for (const an of (view.annots || [])){
+    sAnnots += `<text class="annot" x="${an.x}" y="${an.y}">${esc(an.text)}</text>`;
+  }
+
+  return `<svg id="svg-${view.id}" viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet" xmlns="${NS}">
+    ${sConts}${sEdges}${sNodes}${sChips}${sAnnots}
+  </svg>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Állapot + interakció                                                */
+/* ------------------------------------------------------------------ */
+
+const stage = document.getElementById('stage');
+const tabsEl = document.getElementById('tabs');
+const stepsEl = document.getElementById('steps');
+const stepnoEl = document.getElementById('stepno');
+const titleEl = document.getElementById('steptitle');
+const descEl = document.getElementById('stepdesc');
+const playBtn = document.getElementById('play');
+
+let cur = 0;                 /* aktív nézet indexe */
+let stepIdx = -1;            /* -1 = áttekintés */
+let timer = null;
+
+stage.innerHTML = VIEWS.map(renderView).join('');
+
+VIEWS.forEach((v, idx) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<b>${esc(v.tab[0])}</b>${esc(v.tab[1])}`;
+  b.addEventListener('click', () => selectView(idx));
+  tabsEl.appendChild(b);
+});
+
+function svgOf(idx){ return document.getElementById('svg-' + VIEWS[idx].id); }
+
+function selectView(idx){
+  stopPlay();
+  cur = idx;
+  stepIdx = -1;
+  [...tabsEl.children].forEach((b, i) => b.classList.toggle('sel', i === idx));
+  [...stage.querySelectorAll('svg')].forEach((s, i) => s.classList.toggle('vis', i === idx));
+  buildStepList();
+  applyStep();
+}
+
+function buildStepList(){
+  stepsEl.innerHTML = '';
+  VIEWS[cur].steps.forEach((st, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="n">${i + 1}</span><span>${esc(st.t)}</span>`;
+    li.addEventListener('click', () => { stopPlay(); stepIdx = i; applyStep(); });
+    stepsEl.appendChild(li);
+  });
+}
+
+function applyStep(){
+  const view = VIEWS[cur];
+  const svg = svgOf(cur);
+  const keyed = svg.querySelectorAll('.k');
+
+  if (stepIdx < 0){
+    svg.classList.remove('stepped');
+    keyed.forEach(g => g.classList.remove('on'));
+    stepnoEl.textContent = view.tab[0];
+    titleEl.textContent = view.tab[1].charAt(0).toUpperCase() + view.tab[1].slice(1);
+    descEl.textContent = 'Kattints egy lépésre, léptess a ← → billentyűkkel, vagy indítsd el a lejátszást.';
+  } else {
+    const st = view.steps[stepIdx];
+    const on = new Set(st.k);
+    svg.classList.add('stepped');
+    keyed.forEach(g => g.classList.toggle('on', on.has(g.dataset.k)));
+    stepnoEl.textContent = `Lépés ${stepIdx + 1} / ${view.steps.length}`;
+    titleEl.textContent = st.t;
+    descEl.textContent = st.d;
+  }
+
+  [...stepsEl.children].forEach((li, i) => {
+    li.classList.toggle('cur', i === stepIdx);
+    li.classList.toggle('done', i < stepIdx);
+    if (i === stepIdx) li.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function move(dir){
+  const max = VIEWS[cur].steps.length - 1;
+  stepIdx = Math.min(max, Math.max(-1, stepIdx + dir));
+  applyStep();
+}
+
+function stopPlay(){
+  if (timer){ clearInterval(timer); timer = null; }
+  playBtn.classList.remove('playing');
+  playBtn.textContent = '▶ Lejátszás';
+}
+
+function togglePlay(){
+  if (timer){ stopPlay(); return; }
+  const max = VIEWS[cur].steps.length - 1;
+  if (stepIdx >= max) stepIdx = -1;      /* a végéről újraindul */
+  playBtn.classList.add('playing');
+  playBtn.textContent = '⏸ Szünet';
+  move(1);
+  timer = setInterval(() => {
+    if (stepIdx >= max){ stopPlay(); return; }
+    move(1);
+  }, 1500);
+}
+
+document.getElementById('prev').addEventListener('click', () => { stopPlay(); move(-1); });
+document.getElementById('next').addEventListener('click', () => { stopPlay(); move(1); });
+playBtn.addEventListener('click', togglePlay);
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'ArrowRight'){ stopPlay(); move(1); ev.preventDefault(); }
+  else if (ev.key === 'ArrowLeft'){ stopPlay(); move(-1); ev.preventDefault(); }
+  else if (ev.key === ' '){ togglePlay(); ev.preventDefault(); }
+  else if (ev.key >= '1' && ev.key <= '3'){ selectView(Number(ev.key) - 1); }
+});
+
+selectView(0);
+</script>
