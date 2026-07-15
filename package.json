@@ -19,7 +19,8 @@
     "db:reset": "prisma migrate reset --schema=packages/db/prisma/schema.prisma",
     "db:seed": "prisma db seed",
     "knowledge:ingest": "tsx --conditions=@plantbase/source apps/cli/src/ingest-knowledge.ts",
-    "db:studio": "prisma studio --schema=packages/db/prisma/schema.prisma"
+    "db:studio": "prisma studio --schema=packages/db/prisma/schema.prisma",
+    "demo": "bash scripts/demo.sh"
   },
   "private": true,
   "prisma": {
