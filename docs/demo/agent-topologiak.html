@@ -94,6 +94,8 @@
   .k.on .box{stroke-width:2.4; animation:pulse 1.5s ease-in-out infinite}
   .k.on{filter:drop-shadow(0 0 10px rgba(143,240,195,.25))}
   @keyframes pulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.4}}
+  .k.faded:not(.on) .box{stroke-opacity:.45}
+  .k.faded:not(.on) .ntitle{opacity:.6}
   .cont{fill:rgba(63,206,143,.03); stroke:var(--agent2); stroke-dasharray:7 6; stroke-width:1.2}
   .contlab{font-size:11px; fill:var(--ink-dim); letter-spacing:.8px}
   .ntitle{font-size:17px; font-weight:600}
@@ -217,30 +219,35 @@ const VIEWS = [
   id:'v2',
   tab:['2 · Tool-alapú delegálás','peer / mesh'],
   nodes:[
-    {id:'u', kind:'user',  x:40,  y:260, w:150, h:130, label:'User'},
-    {id:'c', kind:'agent', x:260, y:140, w:380, h:360, label:'Csomag-agent', sub:'egyenrangú (peer)',
+    {id:'u', kind:'user',  x:30,  y:270, w:130, h:120, label:'User'},
+    {id:'o', kind:'orch',  x:195, y:270, w:180, h:130, label:'Orchestrator', sub:'belépő pont', faded:true,
+     tools:[{id:'routeTo',label:'routeTo'}]},
+    {id:'c', kind:'agent', x:415, y:140, w:350, h:360, label:'Csomag-agent', sub:'egyenrangú (peer)',
      tools:[{id:'queryCustomers',label:'queryCustomers'},{id:'validatePackage',label:'validatePackage'},
             {id:'savePackage',label:'savePackage'},{id:'cancelPackage',label:'cancelPackage'},
             {id:'askInfoAgent',label:'askInfoAgent',cls:'agenttool'}]},
-    {id:'i', kind:'agent', x:760, y:230, w:450, h:240, label:'Info-agent', sub:'egyenrangú (peer)',
+    {id:'i', kind:'agent', x:842, y:230, w:378, h:240, label:'Info-agent', sub:'egyenrangú (peer)',
      tools:[{id:'runSql',label:'runSql'},{id:'searchKnowledge',label:'searchKnowledge'},
             {id:'queryCustomers',label:'queryCustomers'}]}
   ],
-  containers:[{id:'cont', x:722, y:165, w:528, h:335, label:'AZ INFO-AGENT SAJÁT LOOPOT FUTTAT'}],
-  annots:[{x:722, y:528, text:'Nincs karmester: agent hív agentet toolként — az irány feladatonként más lehet.'}],
+  containers:[{id:'cont', x:810, y:165, w:442, h:335, label:'AZ INFO-AGENT SAJÁT LOOPOT FUTTAT'}],
+  annots:[{x:195, y:558, text:'A különbség a routerhez képest: az ADAT nem az orchestratoron át megy — a Csomag-agent maga futtatja az Info-agentet.'}],
   edges:[
-    {id:'e1', from:{n:'u',s:'r',dy:-18}, to:{n:'c',s:'l',dy:-35}, label:'kérdés'},
-    {id:'e2', from:{n:'c',t:'askInfoAgent',s:'r'}, to:{n:'i',s:'l'}, label:'agent-hívás', lt:0.72},
+    {id:'e0', from:{n:'u',s:'r',dy:-15}, to:{n:'o',s:'l',dy:-15}},
+    {id:'er', from:{n:'o',s:'t'}, to:{n:'c',s:'l',dy:-95}, label:'routeTo'},
+    {id:'e2', from:{n:'c',t:'askInfoAgent',s:'r'}, to:{n:'i',s:'l'}, label:'agent-hívás', lt:0.82},
     {id:'e3', from:{n:'i',s:'t'}, to:{n:'c',s:'t'}, label:'válasz vissza'},
-    {id:'e4', from:{n:'c',s:'l',dy:45}, to:{n:'u',s:'r',dy:25}, label:'válasz'}
+    {id:'e4', from:{n:'c',s:'l',dy:120}, to:{n:'u',s:'b'}, label:'válasz'}
   ],
   steps:[
-    {t:'A user kérdez', k:['u','e1','c'],
-     d:'A csomagösszeállítási kérés a Csomag-agenthez érkezik — most ő a belépési pont, de ez nem kőbe vésett szerep.'},
+    {t:'A user kérdez', k:['u','e0','o'],
+     d:'A csomagösszeállítási kérés itt is az Orchestratorhoz fut be — delegate módban is ő a belépési pont.'},
+    {t:'Orchestrator: routeTo döntés', k:['o','o.routeTo','er','c'],
+     d:'A routeTo a Csomag-agenthez irányít — de innentől az Orchestrator kiszáll: az adatforgalom már nem rajta megy át.'},
     {t:'Ügyféladat: queryCustomers', k:['c','c.queryCustomers'],
      d:'A Csomag-agent a saját tooljával megnézi az ügyfél adatait és a korábbi rendeléseket.'},
     {t:'askInfoAgent — kérdés a társnak', k:['c.askInfoAgent','e2'],
-     d:'Növény-szakértelemre van szüksége, ezért toolként meghívja az egyenrangú Info-agentet. Nem parancs — kérdés egy társnak.'},
+     d:'Növény-szakértelemre van szüksége, ezért toolként MAGA hívja meg az egyenrangú Info-agentet — nem az Orchestratoron keresztül.'},
     {t:'Az Info-agent saját loopot indít', k:['cont','i'],
      d:'Az Info-agent önálló loopban dolgozik a saját promptjával és tooljaival — a Csomag-agent belső lépéseit nem látja, csak a végeredményt kapja.'},
     {t:'runSql — katalógus-lekérdezés', k:['i','i.runSql'],
@@ -248,11 +255,11 @@ const VIEWS = [
     {t:'searchKnowledge — gondozási tudás', k:['i','i.searchKnowledge'],
      d:'A tudásbázisból kiegészíti: fényigény, pet-safe szempontok, gondozási nehézség.'},
     {t:'Strukturált válasz vissza', k:['e3','i','c'],
-     d:'Az Info-agent válasza tool-eredményként landol a Csomag-agent loopjában — pont mint bármely más tool kimenete.'},
+     d:'Az Info-agent válasza közvetlenül a Csomag-agent loopjában landol tool-eredményként — az Orchestrator nem is látja.'},
     {t:'Validálás és mentés', k:['c','c.validatePackage','c.savePackage'],
      d:'A Csomag-agent összeállítja a csomagot, validálja az üzleti szabályok szerint, majd elmenti.'},
     {t:'Válasz a usernek', k:['c','e4','u'],
-     d:'A végső választ a Csomag-agent adja. Mesh-minta: bármely agent hívhat bármely másikat — központi irányítás nélkül.'}
+     d:'A végső választ a Csomag-agent adja. Mesh-minta: a routing egyszeri, utána agent hív agentet toolként — karmester nélkül.'}
   ]
 },
 {
@@ -390,7 +397,7 @@ function renderView(view){
       inner = `<text class="ntitle" x="${n.x + 20}" y="${n.y + 36}" fill="${col}">${esc(n.label)}</text>` +
         (n.sub ? `<text class="nsub" x="${n.x + 20}" y="${n.y + 56}">${esc(n.sub)}</text>` : '');
     }
-    sNodes += `<g class="k" data-k="${n.id}">
+    sNodes += `<g class="k${n.faded ? ' faded' : ''}" data-k="${n.id}">
       <rect class="box" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="14" stroke="${col}"/>
       ${inner}
     </g>`;
