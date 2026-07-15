@@ -1,5 +1,8 @@
 # Seed — előre kész növény-adat
 
+> **FIGYELEM:** ez a mappa a kurzus induló csomagja (starter kit) — TÖRTÉNETI másolat.
+> Az ÉLŐ forrás a `packages/db/prisma/` (plants.ts + seed.ts); azt szerkeszd, ezt ne.
+
 A `plantbase` katalógus indító adata, hogy induláskor ne kelljen generálni (gyorsabb a live build).
 
 - `plants.ts` — ~30 realisztikus növény a `products` séma szerint (kategóriák, fény, öntözés, méret, ár/akció, pet/kid-safe, rating).
