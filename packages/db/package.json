@@ -2,7 +2,14 @@
   "name": "@plantbase/db",
   "version": "0.0.1",
   "private": true,
-  "nx": {
-    "name": "db"
-  }
+  "main": "./generated/client/index.js",
+  "types": "./generated/client/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./generated/client/index.d.ts",
+      "default": "./generated/client/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "nx": { "name": "db" }
 }

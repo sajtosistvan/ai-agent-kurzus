@@ -50,6 +50,12 @@ export interface AskOptions {
    * ezért ilyenkor mi nem olvassuk a fullStream-et.
    */
   onStream?: (result: StreamTextResult<ToolSet, never>) => void;
+  /**
+   * ÚJ MELLÉK-CSATORNA az orchestrator/szerver felé: minden tool-futásról ugyanazt az
+   * outcome-ot kapja meg, amit a Trace — ebből lesz a böngészőben a tool-chip (data-tool part).
+   * Ha nincs megadva (CLI, off mód), semmi nem változik.
+   */
+  onToolEvent?: ToolReporter;
 }
 
 export interface AskResult {
@@ -113,9 +119,11 @@ export async function runAgentLoop(
     string,
     { name: string; input: unknown; outcome: ToolOutcome }
   >();
-  const tools = agent.buildTools((toolCallId, name, input, outcome) => {
-    outcomes.set(toolCallId, { name, input, outcome });
-  });
+  const tools = agent.buildTools(
+    composeReporter((toolCallId, name, input, outcome) => {
+      outcomes.set(toolCallId, { name, input, outcome });
+    }, options.onToolEvent),
+  );
   const toolNames = Object.keys(tools);
 
   const result = streamText({
@@ -195,6 +203,18 @@ export async function runAgentLoop(
   }
 
   return finishRun(result, agent, trace, messages, options);
+}
+
+/** A Trace belső gyűjtője + a hívó onToolEvent-je EGY reporterben. Külön függvény, hogy
+ *  modell-hívás nélkül tesztelhető legyen. */
+export function composeReporter(
+  collect: ToolReporter,
+  onToolEvent: ToolReporter | undefined,
+): ToolReporter {
+  return (toolCallId, name, input, outcome) => {
+    collect(toolCallId, name, input, outcome);
+    onToolEvent?.(toolCallId, name, input, outcome);
+  };
 }
 
 /**

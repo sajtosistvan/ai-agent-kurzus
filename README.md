@@ -17,8 +17,8 @@ felhasználó kérdése
    apps/cli  ──────────►  packages/core  (askAgent)
   (commander,             │
    readline)              │  1. system prompt (séma + szabályok, XML-tagolt)
-                          │  2. Anthropic messages.create  ◄── kézzel írt
-                          │  3. a modell SQL-t ír  ──► runSql tool       tool-use loop
+                          │  2. generateText (Vercel AI SDK)  ◄── stopWhen:
+                          │  3. a modell SQL-t ír  ──► runSql tool       stepCountIs(n)
                           │  4. SELECT-guard + READ-ONLY kapcsolat ──► Postgres (products)
                           │  5. sorok ──► a modell magyar választ ad
                           ▼
@@ -26,7 +26,7 @@ felhasználó kérdése
                           +  logs/<timestamp>.json  +  logs/agent.log
 ```
 
-A `packages/core` **framework-agnostic**: nem ismeri a belépési pontot (CLI/API/web). Az `askAgent` az Anthropic SDK fölé épülő, **kézzel írt, többlépéses tool-use loop** — szándékosan nincs agent-framework, hogy a mechanika látható maradjon.
+A `packages/core` **framework-agnostic**: nem ismeri a belépési pontot (CLI/API/web). Az agent a **Vercel AI SDK 6**-ra épül (`generateText` + `stopWhen: stepCountIs(n)`): a prompt → tool-hívás → tool-eredmény → ismétlés ciklust az SDK futtatja, de a lépésenkénti átláthatóságot a saját trace-rétegünk adja (`prepareStep`/`onStepFinish` → trace.ts). A loop eredetileg kézzel íródott a nyers Anthropic SDK fölé — a tananyag ezt a fejlődést követi.
 
 ---
 
@@ -47,7 +47,7 @@ A Prisma (séma, migráció, seed) ezzel szemben a **READ-WRITE** kapcsolatot ha
 | Réteg          | Eszköz                                                       |
 | -------------- | ------------------------------------------------------------ |
 | Monorepo       | Nx 23, pnpm workspaces, TypeScript (strict), Node LTS        |
-| Agent          | `@anthropic-ai/sdk` (hivatalos kliens) + saját tool-use loop |
+| Agent          | Vercel AI SDK 6 (`generateText` + `stopWhen: stepCountIs`) + saját trace-réteg |
 | Validáció      | Zod (rendszer-határokon)                                     |
 | CLI            | commander + `node:readline`                                  |
 | Adatbázis      | PostgreSQL 17 (docker-compose, OrbStack), `pg` (read-only)   |
@@ -61,15 +61,18 @@ A Prisma (séma, migráció, seed) ezzel szemben a **READ-WRITE** kapcsolatot ha
 ```
 .
 ├── apps/
-│   └── cli/            # plantbase CLI: ask parancs + interaktív mód
+│   ├── cli/             # plantbase CLI: ask parancs + interaktív mód
+│   ├── server/          # Express API: /api/chat + /debug/knowledge
+│   └── web/             # Vite + React chat UI, tool-kártyák
 ├── packages/
-│   ├── core/           # agent-logika (framework-agnostic)
-│   │   └── src/lib/    # agent (tool-use loop), config, prompts, trace, echo
-│   │       └── tools/  # run-sql tool, sql-guard, db-readonly, dispatch
-│   └── db/             # Prisma lib: séma, migráció, generált kliens, seed
-├── docs/               # BRS, architektúra, stack, konvenciók, system-prompt, terv
-├── docker-compose.yml  # Postgres + read-only role (initdb)
-└── .env.example        # két DB-kapcsolat (RW/RO) + Anthropic kulcs/model
+│   ├── core/            # agent-logika (framework-agnostic)
+│   │   └── src/lib/     # agent (Vercel AI SDK loop), config, prompts, trace, echo, rag
+│   │       └── tools/   # run-sql, search-knowledge, sql-guard, db-readonly, dispatch
+│   └── db/               # Prisma lib: séma (products, knowledge_chunks), migráció, generált kliens, seed
+├── seed/knowledge/      # tudásbázis-cikkek a knowledge:ingest scripthez
+├── docs/                # BRS, architektúra, stack, konvenciók, system-prompt, terv
+├── docker-compose.yml   # Postgres + read-only role (initdb)
+└── .env.example         # két DB-kapcsolat (RW/RO) + Anthropic kulcs/model
 ```
 
 ---
@@ -138,6 +141,9 @@ A modell `.env`-ből állítható (`ANTHROPIC_MODEL`); költségérzékeny demó
 | `pnpm test`               | Vitest (unit tesztek)                            |
 | `pnpm lint` / `typecheck` | ESLint / `tsc`                                   |
 | `pnpm format`             | Prettier                                         |
+| `pnpm server`             | Express API dev-módban (port 3001)               |
+| `pnpm web`                | Vite dev-szerver a chat UI-hoz (port 4200)       |
+| `pnpm knowledge:ingest`   | tudásbázis-cikkek darabolása + vektorizálása a knowledge_chunks táblába |
 
 ---
 

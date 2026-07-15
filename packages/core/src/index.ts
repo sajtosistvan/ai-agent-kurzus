@@ -14,15 +14,18 @@ export * from './lib/agents/query-agent/query-agent.js';
 export * from './lib/agents/query-agent/query-prompt.js';
 export * from './lib/agents/ingest-agent/ingest-agent.js';
 export * from './lib/agents/ingest-agent/ingest-prompt.js';
+export * from './lib/agents/package-agent/package-agent.js';
+export * from './lib/agents/package-agent/package-prompt.js';
 
 // A közös tool-eredmény alak
 export * from './lib/tools/tool-outcome.js';
 
 // Toolok — saját könyvtárban, minden hozzávalóval
+export * from './lib/tools/prisma-client.js';
 export * from './lib/tools/run-sql/run-sql-tool.js';
 export * from './lib/tools/run-sql/sql-guard.js';
 export * from './lib/tools/run-sql/db-readonly.js';
-export * from './lib/tools/get-client-preferences/get-client-preferences-tool.js';
+export * from './lib/tools/query-customers/query-customers-tool.js';
 export * from './lib/tools/delegate-to-ingest/delegate-to-ingest-tool.js';
 export * from './lib/tools/fetch-feed/fetch-feed-tool.js';
 export * from './lib/tools/fetch-feed/shopify-feed.js';
@@ -31,6 +34,22 @@ export * from './lib/tools/upsert-product/product-schema.js';
 export * from './lib/tools/upsert-product/db-readwrite.js';
 
 export * from './lib/tools/search-knowledge/search-knowledge-tool.js';
+export * from './lib/tools/route-to/route-to-tool.js';
+export * from './lib/tools/request-info/request-info-tool.js';
+export * from './lib/tools/cancel-package/cancel-package-tool.js';
+export * from './lib/tools/validate-package/package-validation.js';
+export * from './lib/tools/validate-package/validate-package-tool.js';
+export * from './lib/tools/save-package/save-package-tool.js';
+export * from './lib/tools/ask-info-agent/ask-info-agent-tool.js';
+
+// Orchestrator — a multi-agent belépési pont és a flow-lock
+export * from './lib/agents/orchestrator-agent/orchestration-mode.js';
+export * from './lib/agents/orchestrator-agent/find-last-flow-signal.js';
+export * from './lib/tools/validate-package/package-plan.js';
+export * from './lib/agents/orchestrator-agent/orchestrator-agent.js';
+export * from './lib/agents/orchestrator-agent/orchestrator-prompt.js';
+export * from './lib/agents/orchestrator-agent/router-handover.js';
+export * from './lib/agents/orchestrator-agent/delegate-handover.js';
 
 // RAG — a tudás-oldal: darabolás, vektorizálás, vektor-tároló, keresés (+ rerank, HyDE)
 export * from './lib/rag/chunk.js';
@@ -46,5 +65,3 @@ export * from './lib/user-role/user-role.js';
 // Megfigyelhetőség + konfiguráció
 export * from './lib/trace.js';
 export * from './lib/config.js';
-
-export * from './lib/echo.js';

@@ -52,7 +52,7 @@ function splitLongParagraph(paragraph: string, maxChars: number): string[] {
 
 /**
  * Markdown dokumentum → darabok. Bekezdés-határon vág, cél-méretig pakol, egy bekezdésnyit átfed.
- * A markdown front matter (--- ... ---) és a címsorok a hívó dolga (lásd knowledge-document.ts).
+ * A markdown front matter (--- ... ---) és a címsorok a hívó dolga (a hívó: apps/cli/src/ingest-knowledge.ts).
  */
 export function chunkMarkdown(text: string, options: ChunkOptions = {}): Chunk[] {
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;

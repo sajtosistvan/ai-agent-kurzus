@@ -86,8 +86,9 @@ products (
 - searchKnowledge(question): keresés a bolt gondozási tudásbázisában (cikkek: kártevők, betegségek,
   öntözés, fény, átültetés, évszakos teendők). Minden "hogyan / miért / mit tegyek" kérdésnél EZT hívd.
   A találatok forrás-URL-t is tartalmaznak — hivatkozz rájuk.
-- getClientPreferences(clientCode): visszaadja az ügyfél preferenciáit — a büdzsét (Ft) és a
-  preferált növény igényességét (ALACSONY | KÖZEPES | MAGAS gondozási igény).${delegateTool}
+- queryCustomers(code|search|customerType): a bolt ügyfeleinek profilja — keret (Ft), hozzáértés
+  (kezdő|haladó|profi), pet/kid-safe igény, jegyzet. Ha a kérdés egy ügyfélről szól ("az ACME-nek",
+  "a szegedi kávézónak"), ELŐSZÖR ezt hívd, és a választ az ő keretéhez/igényeihez igazítsd.${delegateTool}
 </tools>
 `.trim();
 }

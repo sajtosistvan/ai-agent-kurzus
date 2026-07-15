@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
+import { DefaultChatTransport, type UIMessage } from 'ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Leaf, Send, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToolCard } from '@/components/tool-card';
+import { ThreadList } from '@/components/thread-list';
+import { AgentBadge, ToolChip } from '@/components/agent-chips';
+import { PackageSummary } from '@/components/package-summary';
+import { splitAssistantParts } from '@/lib/message-parts';
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -16,8 +20,9 @@ import {
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller';
 
-// App.tsx — a Vercel AI SDK useChat hookja hajtja, NEM sima fetch. A useChat minden hívásnál a
-// TELJES üzenet-előzményt elküldi a szervernek (lásd apps/server/src/main.ts).
+// App.tsx — a Vercel AI SDK useChat hookja hajtja, NEM sima fetch. Fontos változás: már NEM a
+// teljes üzenet-előzmény megy fel, hanem csak az ÚJ üzenet + a threadId — az előzmény a szerver
+// adatbázisában él (lásd apps/server/src/main.ts).
 //
 // KÉT PROTOKOLL — ezt érdemes megérteni:
 //
@@ -33,10 +38,57 @@ import {
 // VITE_API_URL build-time env változó adja meg az API alap-URL-jét (pl. https://api.up.railway.app).
 // Dev alatt üresen marad, ekkor a Vite proxyzza a relatív /api-t (lásd vite.config.ts).
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? '';
-const transport = new DefaultChatTransport({ api: `${apiBaseUrl}/api/chat` });
+
+// A thread id a URL-ben él (?thread=<id>) — megosztható, újratöltés-álló. Új beszélgetésnél
+// a szerver data-thread partja adja meg az id-t, és csendben beírjuk a címsorba.
+const initialThreadId = new URLSearchParams(window.location.search).get('thread');
 
 export default function App() {
-  const { messages, sendMessage, status, stop } = useChat({ transport });
+  const threadIdRef = useRef<string | null>(initialThreadId);
+  const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(
+    initialThreadId ? null : [],
+  );
+
+  // URL-ből érkezve: az előzmény a szerverről (tool-kártyákkal együtt).
+  useEffect(() => {
+    if (!initialThreadId) return;
+    fetch(`${apiBaseUrl}/api/threads/${initialThreadId}`)
+      .then((r) => (r.ok ? r.json() : { messages: [] }))
+      .then((t) => setInitialMessages(t.messages))
+      .catch(() => setInitialMessages([]));
+  }, []);
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: `${apiBaseUrl}/api/chat`,
+        // Csak az ÚJ üzenet + a threadId megy fel — az előzmény a szerver DB-jéből jön.
+        prepareSendMessagesRequest: ({ messages }) => ({
+          body: { threadId: threadIdRef.current, message: messages[messages.length - 1] },
+        }),
+      }),
+    [],
+  );
+
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
+    transport,
+    onData: (part) => {
+      // A szerver első partja az új thread id-je — URL-be írjuk, hogy megosztható legyen.
+      if (part.type === 'data-thread') {
+        const { threadId } = part.data as { threadId: string };
+        threadIdRef.current = threadId;
+        window.history.replaceState(null, '', `?thread=${threadId}`);
+      }
+    },
+  });
+
+  // Betöltött előzmény beemelése a chatbe (egyszer, amikor megérkezett).
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages]);
+
   const [input, setInput] = useState('');
   const loading = status === 'submitted' || status === 'streaming';
 
@@ -63,25 +115,18 @@ export default function App() {
         <MessageScroller className="flex-1">
           <MessageScrollerViewport>
             <MessageScrollerContent>
-              {messages.length === 0 && (
+              {/* Amíg a URL-beli thread előzménye töltődik, betöltés-jelzést mutatunk. */}
+              {initialMessages === null && (
+                <p className="text-muted-foreground text-sm">beszélgetés betöltése…</p>
+              )}
+              {initialMessages !== null && messages.length === 0 && (
                 <p className="text-muted-foreground text-sm">
                   Kérdezz a katalógusról — pl. „mutass 3 pet-safe növényt raktáron, 5000
                   Ft alatt”.
                 </p>
               )}
               {messages.map((m) => {
-                // DEBUG: a böngésző-konzolban is látszik, mit kapott a kliens (tool-részekkel).
-                if (m.role === 'assistant') {
-                  console.log('[plantbase] üzenet-részek:', m.parts);
-                }
-                const text = m.parts
-                  .filter((part) => part.type === 'text')
-                  .map((part) => part.text)
-                  .join('');
-                // A tool-részek típusa: `tool-<toolNév>` (pl. tool-searchKnowledge).
-                const toolParts = m.parts.filter((part) =>
-                  part.type.startsWith('tool-'),
-                );
+                const { text, toolParts, agent, toolEvents, packagePlan } = splitAssistantParts(m);
                 return (
                   <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === 'user'}>
                     <div className={m.role === 'user' ? 'text-right' : 'text-left'}>
@@ -91,16 +136,29 @@ export default function App() {
                         </span>
                       ) : (
                         <div className="inline-block max-w-[85%] text-left">
+                          {/* Orchestrált mód: KI beszél (badge) + a döntések/tool-futások chipjei. */}
+                          {agent && <AgentBadge agent={agent} />}
+                          {toolEvents.map((event, index) => (
+                            <ToolChip key={`${m.id}-event-${index}`} event={event} />
+                          ))}
                           {/* ELŐSZÖR a tool-lépések (mit csinált), UTÁNA a válasz (mit mond). */}
                           {toolParts.map((part, index) => (
                             <ToolCard
                               key={`${m.id}-tool-${index}`}
                               toolName={part.type.replace('tool-', '')}
-                              state={(part as { state: string }).state}
-                              input={(part as { input?: unknown }).input}
-                              output={(part as { output?: unknown }).output}
+                              state={part.state}
+                              input={part.input}
+                              output={part.output}
                             />
                           ))}
+                          {packagePlan && (
+                            <PackageSummary
+                              plan={packagePlan}
+                              disabled={loading}
+                              onConfirm={() => void sendMessage({ text: 'Rendben, mentsd el a csomagot.' })}
+                              onModify={() => void sendMessage({ text: 'Módosítanék a csomagon.' })}
+                            />
+                          )}
                           {text !== '' && (
                             <div className="prose prose-sm prose-neutral bg-muted rounded-lg px-3 py-2 prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
@@ -142,6 +200,8 @@ export default function App() {
           </Button>
         )}
       </form>
+
+      <ThreadList activeId={threadIdRef.current} />
     </div>
   );
 }

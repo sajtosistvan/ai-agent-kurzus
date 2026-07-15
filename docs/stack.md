@@ -4,7 +4,7 @@ Elv: iparági best practice, legfrissebb STABIL verzió (se cutting-edge, se ela
 
 - Nyelv / monorepo: TypeScript (strict), Nx, pnpm, Node LTS
 - DB: PostgreSQL lokálisan docker-compose-ban (OrbStack futtatja), Prisma (ORM: séma, migráció, seed, typed query). Helyben dolgozunk, nincs felhő-DB.
-- Agent: Anthropic SDK (hivatalos kliens, nem nyers HTTP) + saját tool-use loop, agent-framework nélkül. Zod (validáció)
+- Agent: Vercel AI SDK 6 (`generateText` + `stopWhen: stepCountIs(n)`), a lépésenkénti átláthatóságot saját trace-réteg adja (`prepareStep`/`onStepFinish` → trace.ts); eredetileg kézzel írt loop volt a nyers Anthropic SDK fölé. Zod (validáció)
 - CLI: commander + node:readline
 - Tooling: Vitest, ESLint + Prettier, tsx
 - Eszköz: Zed, gh CLI

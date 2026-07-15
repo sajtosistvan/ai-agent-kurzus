@@ -21,6 +21,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.93",
     "@ai-sdk/openai": "^3.0.84",
+    "@plantbase/db": "workspace:*",
     "ai": "6.0.219",
     "pg": "^8.22.0",
     "tslib": "^2.3.0",

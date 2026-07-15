@@ -19,13 +19,15 @@
     "db:reset": "prisma migrate reset --schema=packages/db/prisma/schema.prisma",
     "db:seed": "prisma db seed",
     "knowledge:ingest": "tsx --conditions=@plantbase/source apps/cli/src/ingest-knowledge.ts",
-    "db:studio": "prisma studio --schema=packages/db/prisma/schema.prisma"
+    "db:studio": "prisma studio --schema=packages/db/prisma/schema.prisma",
+    "demo": "bash scripts/demo.sh"
   },
   "private": true,
   "prisma": {
     "seed": "tsx packages/db/prisma/seed.ts"
   },
   "devDependencies": {
+    "@ai-sdk/anthropic": "3.0.93",
     "@eslint/js": "^9.8.0",
     "@nx/esbuild": "23.0.1",
     "@nx/eslint": "23.0.1",
@@ -40,12 +42,14 @@
     "@swc/helpers": "0.5.18",
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "~4.1.0",
+    "ai": "6.0.219",
     "esbuild": "^0.27.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "jiti": "2.4.2",
     "jsonc-eslint-parser": "^2.1.0",
     "nx": "23.0.1",
+    "playwright": "^1.61.1",
     "prettier": "^3.8.1",
     "prisma": "^6",
     "tslib": "^2.3.0",

@@ -7,14 +7,15 @@ import {
 } from '../agent-loop.js';
 import { runSqlTool } from '../../tools/run-sql/run-sql-tool.js';
 import { searchKnowledgeTool } from '../../tools/search-knowledge/search-knowledge-tool.js';
-import { getClientPreferencesTool } from '../../tools/get-client-preferences/get-client-preferences-tool.js';
+import { queryCustomersTool } from '../../tools/query-customers/query-customers-tool.js';
 import { delegateToIngestTool } from '../../tools/delegate-to-ingest/delegate-to-ingest-tool.js';
-import { CURRENT_ROLE, type UserRole } from '../../user-role/user-role.js';
+import { CURRENT_ROLE, type UserRole, isAdmin } from '../../user-role/user-role.js';
+import type { ToolReporter } from '../../tools/tool-outcome.js';
 
 // query-agent.ts — a KÉRDÉS-VÁLASZ agent (a termék "ask" oldala). READ-ONLY: természetes
 // nyelvű kérdésből SQL-t ír, lefuttatja, magyarul válaszol. Egy agent = prompt + toolok + loop:
 //   prompt:  query-prompt.ts (szerep, séma, SQL-szabályok)
-//   toolok:  runSql (read-only SELECT) + getClientPreferences (ügyfél-preferenciák)
+//   toolok:  runSql (read-only SELECT) + queryCustomers (ügyfél-profilok, Prismán át)
 //            + admin szerepnél: delegateToIngest (a MÁSIK agent tool-ként — multi-agent)
 //   loop:    a közös agent-loop (agent-loop.ts)
 //
@@ -28,6 +29,26 @@ export interface QueryAskOptions extends AskOptions {
   role?: UserRole;
 }
 
+/** A query-agent toolkészlete SZEREP szerint. A prompt (buildQueryPrompt) és ez a függvény
+ *  ugyanabból a role-értékből dolgozik — a kettő nem csúszhat el: amit a prompt leír, az a
+ *  toolkészletben tényleg ott van, és fordítva. */
+export function buildQueryToolset(
+  role: UserRole,
+  report?: ToolReporter,
+  options: { print?: boolean } = {},
+): ToolSet {
+  return {
+    runSql: runSqlTool(report),
+    // A tudás-oldal: szöveges gondozási cikkek (RAG). A párja a runSql — a modell választ.
+    searchKnowledge: searchKnowledgeTool(report),
+    queryCustomers: queryCustomersTool(report),
+    // Admin szerep → a MÁSIK agent tool-ként. Vásárlónál ez a kulcs nincs az objektumban.
+    ...(isAdmin(role)
+      ? { delegateToIngest: delegateToIngestTool(report, { print: options.print }) }
+      : {}),
+  };
+}
+
 export async function askAgent(
   question: string,
   options: QueryAskOptions = {},
@@ -38,29 +59,15 @@ export async function askAgent(
   }
 
   const role = options.role ?? CURRENT_ROLE;
-  // Web deploy: admin delegálás ideiglenesen kikapcsolva, amíg a webes rétegben nincs role-választó UI.
-  const admin = false;
 
   return runAgentLoop(
     trimmed,
     {
       systemPrompt: buildQueryPrompt(role),
-      buildTools: (report): ToolSet => ({
-        runSql: runSqlTool(report),
-        // A tudás-oldal: szöveges gondozási cikkek (RAG). A párja a runSql — a modell választ.
-        searchKnowledge: searchKnowledgeTool(report),
-        getClientPreferences: getClientPreferencesTool(report),
-        // Admin szerep → a MÁSIK agent tool-ként. Vásárlónál ez a kulcs nincs az objektumban.
-        ...(admin
-          ? {
-              delegateToIngest: delegateToIngestTool(report, {
-                print: options.print,
-              }),
-            }
-          : {}),
-      }),
+      buildTools: (report): ToolSet =>
+        buildQueryToolset(role, report, { print: options.print }),
       // Admin esetén a delegálás + a végső összegzés miatt kicsivel több kör kellhet.
-      maxSteps: admin ? 8 : 6,
+      maxSteps: isAdmin(role) ? 8 : 6,
       // A RAG-válasz hosszabb: a katalógus-sorok MELLETT a tudásbázis-részletek összegzése és a
       // forrás-hivatkozások is beleférjenek (1024-nél félbevágódott).
       maxOutputTokens: 2500,
