@@ -1,0 +1,12 @@
+{
+  "name": "voice-demo",
+  "private": true,
+  "type": "module",
+  "description": "Eldobható órai demó: voice agent működések (7. óra)",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "openai": "^6.0.0"
+  }
+}
