@@ -1,6 +1,6 @@
 // Eldobható órai demó-szerver (7. óra — Beszélő agent)
 // Feladata: API-kulcs őrzése + cascade pipeline időméréssel + Realtime ephemeral token.
-// Futtatás: OPENAI_API_KEY=sk-... node server.mjs  →  http://localhost:3777
+// Futtatás: cp .env.example .env (kulcs beírása), majd: node --env-file=.env server.mjs  →  http://localhost:3777
 
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("HIÁNYZIK az OPENAI_API_KEY környezeti változó.");
-  console.error("Indítás:  OPENAI_API_KEY=sk-...  node server.mjs");
+  console.error("Indítás:  cp .env.example .env  (kulcs beírása), majd:  node --env-file=.env server.mjs");
   process.exit(1);
 }
 
