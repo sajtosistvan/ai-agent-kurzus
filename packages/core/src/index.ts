@@ -19,6 +19,7 @@ export * from './lib/agents/ingest-agent/ingest-prompt.js';
 export * from './lib/tools/tool-outcome.js';
 
 // Toolok — saját könyvtárban, minden hozzávalóval
+export * from './lib/tools/prisma-client.js';
 export * from './lib/tools/run-sql/run-sql-tool.js';
 export * from './lib/tools/run-sql/sql-guard.js';
 export * from './lib/tools/run-sql/db-readonly.js';

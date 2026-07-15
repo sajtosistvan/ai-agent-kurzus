@@ -114,6 +114,9 @@ importers:
       '@plantbase/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@plantbase/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       ai:
         specifier: 6.0.219
         version: 6.0.219(zod@4.4.3)
@@ -203,6 +206,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.84
         version: 3.0.84(zod@4.4.3)
+      '@plantbase/db':
+        specifier: workspace:*
+        version: link:../db
       ai:
         specifier: 6.0.219
         version: 6.0.219(zod@4.4.3)
