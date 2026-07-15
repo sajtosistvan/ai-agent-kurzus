@@ -12,7 +12,7 @@ description: A Plantbase orchestrator/csomag-flow szimulált beszélgetés-teszt
 
 ## Futtatás (egy forgatókönyv, HTTP driver — default)
 ```bash
-pnpm tsx .claude/skills/flow-test/scripts/run-scenario-http.ts \
+pnpm tsx --env-file=.env .claude/skills/flow-test/scripts/run-scenario-http.ts \
   .claude/skills/flow-test/scenarios/01-happy-path.md --mode router
 ```
 A futás trace-e a `logs/flow-test/<ts>-01-happy-path-router.json` fájlba kerül, az elérési
@@ -20,13 +20,13 @@ utat a szkript kiírja.
 
 ## Browser driver (órai demó-mód, badge/chip asszertekkel)
 ```bash
-pnpm tsx .claude/skills/flow-test/scripts/run-scenario-browser.ts \
+pnpm tsx --env-file=.env .claude/skills/flow-test/scripts/run-scenario-browser.ts \
   .claude/skills/flow-test/scenarios/01-happy-path.md --mode router
 ```
 
 ## Értékelés
 ```bash
-pnpm tsx .claude/skills/flow-test/scripts/evaluate.ts logs/flow-test/<fájl>.json
+pnpm tsx --env-file=.env .claude/skills/flow-test/scripts/evaluate.ts logs/flow-test/<fájl>.json
 ```
 Determinisztikus assertek (jó agent kapta a labdát; validatePackage a savePackage előtt;
 nem zárult flow jelzés nélkül) + LLM-értékelés a puha szempontokra (visszaterelés,
@@ -37,6 +37,6 @@ kérdés-sorrend) + javítási javaslatok a promptokra/toolokra. Hibás assert �
    a HTTP driverrel, értékeld ki mindet.
 2. Állítsd át `delegate`-re, indítsd újra a szervert, futtasd le újra mind az ötöt.
 3. Az evaluate.ts-nek add be az összes logot egyszerre:
-   `pnpm tsx .claude/skills/flow-test/scripts/evaluate.ts logs/flow-test/*.json`
+   `pnpm tsx --env-file=.env .claude/skills/flow-test/scripts/evaluate.ts logs/flow-test/*.json`
    — módonként csoportosított összevető riportot ír (assert-eredmények, körszám, hibák),
    a végén javítási javaslatokkal.
