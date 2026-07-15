@@ -37,6 +37,7 @@ export * from './lib/tools/request-info/request-info-tool.js';
 export * from './lib/tools/cancel-package/cancel-package-tool.js';
 export * from './lib/tools/validate-package/package-validation.js';
 export * from './lib/tools/validate-package/validate-package-tool.js';
+export * from './lib/tools/save-package/save-package-tool.js';
 
 // Orchestrator — a multi-agent belépési pont és a flow-lock
 export * from './lib/agents/orchestrator-agent/orchestration-mode.js';
