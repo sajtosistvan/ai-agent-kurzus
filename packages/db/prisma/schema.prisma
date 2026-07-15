@@ -59,3 +59,23 @@ model Product {
 
   @@map("products")
 }
+
+// customers — a bolt ÜGYFELEI (lakberendező partnerei). A csomag-összeállítás rájuk épül:
+// a budget kemény korlát lesz, az expertise_level a products.difficulty skálájára képeződik.
+model Customer {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique // rövid ügyfélkód — az agent ezzel hivatkozik (pl. ACME)
+  name            String // cégnév vagy magánszemély neve
+  contactName     String?  @map("contact_name")
+  email           String
+  city            String
+  customerType    String   @map("customer_type") // magánszemély | iroda | étterem | hotel | üzlet
+  budget          Decimal  @db.Decimal(12, 2) // keret (HUF)
+  expertiseLevel  String   @map("expertise_level") // kezdő | haladó | profi (= products.difficulty)
+  petSafeRequired Boolean  @map("pet_safe_required")
+  kidSafeRequired Boolean  @map("kid_safe_required")
+  notes           String // döntést befolyásoló kontextus (fény, stílus, öntözési hajlandóság)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("customers")
+}

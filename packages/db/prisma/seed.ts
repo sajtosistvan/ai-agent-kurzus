@@ -7,6 +7,7 @@
 
 import { PrismaClient, type Prisma } from '../generated/client/index.js';
 import { plants, type PlantSeed } from './plants';
+import { customers, type CustomerSeed } from './customers';
 
 const prisma = new PrismaClient();
 
@@ -34,12 +35,38 @@ function toProductInput(p: PlantSeed): Prisma.ProductCreateManyInput {
   };
 }
 
+function toCustomerInput(c: CustomerSeed): Prisma.CustomerCreateInput {
+  return {
+    code: c.code,
+    name: c.name,
+    contactName: c.contact_name,
+    email: c.email,
+    city: c.city,
+    customerType: c.customer_type,
+    budget: c.budget,
+    expertiseLevel: c.expertise_level,
+    petSafeRequired: c.pet_safe_required,
+    kidSafeRequired: c.kid_safe_required,
+    notes: c.notes,
+  };
+}
+
 async function main() {
   await prisma.product.deleteMany(); // idempotens újraseedeléshez
   const result = await prisma.product.createMany({
     data: plants.map(toProductInput),
   });
   console.log(`Seed kész: ${result.count} növény betöltve.`);
+
+  // Ügyfelek: upsert code szerint — deleteMany helyett, mert a threads FK-val hivatkozik rájuk.
+  for (const c of customers) {
+    await prisma.customer.upsert({
+      where: { code: c.code },
+      create: toCustomerInput(c),
+      update: toCustomerInput(c),
+    });
+  }
+  console.log(`Seed kész: ${customers.length} ügyfél betöltve.`);
 }
 
 main()
