@@ -7,6 +7,7 @@ import { Leaf, Send, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToolCard } from '@/components/tool-card';
+import { splitAssistantParts } from '@/lib/message-parts';
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -70,18 +71,7 @@ export default function App() {
                 </p>
               )}
               {messages.map((m) => {
-                // DEBUG: a böngésző-konzolban is látszik, mit kapott a kliens (tool-részekkel).
-                if (m.role === 'assistant') {
-                  console.log('[plantbase] üzenet-részek:', m.parts);
-                }
-                const text = m.parts
-                  .filter((part) => part.type === 'text')
-                  .map((part) => part.text)
-                  .join('');
-                // A tool-részek típusa: `tool-<toolNév>` (pl. tool-searchKnowledge).
-                const toolParts = m.parts.filter((part) =>
-                  part.type.startsWith('tool-'),
-                );
+                const { text, toolParts } = splitAssistantParts(m);
                 return (
                   <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === 'user'}>
                     <div className={m.role === 'user' ? 'text-right' : 'text-left'}>
@@ -96,9 +86,9 @@ export default function App() {
                             <ToolCard
                               key={`${m.id}-tool-${index}`}
                               toolName={part.type.replace('tool-', '')}
-                              state={(part as { state: string }).state}
-                              input={(part as { input?: unknown }).input}
-                              output={(part as { output?: unknown }).output}
+                              state={part.state}
+                              input={part.input}
+                              output={part.output}
                             />
                           ))}
                           {text !== '' && (
