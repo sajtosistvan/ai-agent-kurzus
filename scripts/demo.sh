@@ -42,5 +42,10 @@ echo "→ 6/7 Friss build…"
 pnpm build
 
 echo "→ 7/7 szerver (3001) + web (4200) indul — Ctrl+C mindkettőt leállítja"
+echo "   web: http://localhost:4200 (a web log fájlba megy: logs/web.log)"
+echo "   a terminálban CSAK a szerver agent-trace-e látszik — másik terminálban: tail -f logs/agent.log"
 trap 'kill 0' EXIT INT TERM
-pnpm server & pnpm web & wait
+# A web kimenete fájlba megy, hogy a Vite-log ne keveredjen a színes agent-trace-be.
+mkdir -p logs
+pnpm web > logs/web.log 2>&1 &
+pnpm server & wait
