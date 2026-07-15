@@ -44,8 +44,8 @@ Mini Node-szerver + plain HTML (kulcs env-ből: `OPENAI_API_KEY`), három élő 
 
 ```bash
 cd docs/voice && npm install
-set -a; source ../../.env; set +a
-node server.mjs   # → http://localhost:3777 (Chrome + mikrofon)
+cp .env.example .env   # írd bele a saját OPENAI_API_KEY-edet (helyi, gitignore-olt fájl)
+node --env-file=.env server.mjs   # → http://localhost:3777 (Chrome + mikrofon)
 ```
 
 ## Kapcsolódó anyagok a repóban
