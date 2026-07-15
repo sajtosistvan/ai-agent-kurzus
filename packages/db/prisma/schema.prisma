@@ -76,6 +76,34 @@ model Customer {
   kidSafeRequired Boolean  @map("kid_safe_required")
   notes           String // döntést befolyásoló kontextus (fény, stílus, öntözési hajlandóság)
   createdAt       DateTime @default(now()) @map("created_at")
+  threads         Thread[]
 
   @@map("customers")
+}
+
+// threads + messages — a WEB-CHAT PERZISZTENCIA. A DB az igazságforrás: a kliens csak az új
+// üzenetet küldi, az előzményt a szerver innen tölti. A parts a TELJES UIMessage.parts JSON —
+// így újratöltéskor a tool-kártyák is visszarajzolódnak, nem csak a szöveg.
+model Thread {
+  id         String    @id @default(cuid())
+  title      String // az első user-üzenet első ~60 karaktere
+  customerId Int?      @map("customer_id") // opcionális: melyik ügyfélről szól (a csomag-flow tölti majd)
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  messages   Message[]
+
+  @@map("threads")
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  threadId  String   @map("thread_id")
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      String // user | assistant
+  parts     Json // a teljes UIMessage.parts
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([threadId])
+  @@map("messages")
 }
