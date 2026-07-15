@@ -34,7 +34,7 @@ Konvenciók: egy agent = saját mappa (`*-agent.ts` + `*-prompt.ts`), egy tool =
 Mindkét módban az orchestrator a belépési pont: minden felhasználói üzenetnél lefut (gyors,
 olcsó hívás, akár kisebb modellel), a `routeTo(agent, reason)` toollal dönt, és a kiválasztott
 agent streameli a választ. A **flow-lock** is közös: amíg a csomag-agent nem adott strukturált
-záró jelzést (lásd 4.3), az orchestrator minden üzenetet hozzá irányít — akkor is, ha a
+záró jelzést (lásd 4.4), az orchestrator minden üzenetet hozzá irányít — akkor is, ha a
 felhasználó másról kezd beszélni (a visszaterelés hangneme a csomag-agent promptjának dolga; a
 bentartás maga kód). A lock állapota **nem session-store**: az orchestrator az üzenet-előzményből
 olvassa ki az utolsó záró jelzést (a szerver stateless marad).
