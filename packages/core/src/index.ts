@@ -46,5 +46,3 @@ export * from './lib/user-role/user-role.js';
 // Megfigyelhetőség + konfiguráció
 export * from './lib/trace.js';
 export * from './lib/config.js';
-
-export * from './lib/echo.js';
