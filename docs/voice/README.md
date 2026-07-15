@@ -5,12 +5,15 @@ Három élő demó a jegyzet 3., 4. és 6. pontjához. Plain HTML + mini Node sz
 ## Futtatás
 
 ```bash
-cd voice-demo
+cd docs/voice
 npm install
-set -a; source ~/LABA/ai-agent-kurzus/.env; set +a   # OPENAI_API_KEY innen jön
-node server.mjs
+cp .env.example .env        # írd bele a saját OPENAI_API_KEY-edet
+node --env-file=.env server.mjs
 # → http://localhost:3777  (Chrome, engedélyezd a mikrofont)
 ```
+
+> A kulcs a HELYI `.env` fájlban él (gitignore-olva) — a repóba soha nem kerül be,
+> a `.env.example` csak a minta.
 
 ## A három demó
 
