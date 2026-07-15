@@ -33,6 +33,11 @@ export * from './lib/tools/upsert-product/db-readwrite.js';
 
 export * from './lib/tools/search-knowledge/search-knowledge-tool.js';
 
+// Orchestrator — a multi-agent belépési pont és a flow-lock
+export * from './lib/agents/orchestrator-agent/orchestration-mode.js';
+export * from './lib/agents/orchestrator-agent/find-last-flow-signal.js';
+export * from './lib/tools/validate-package/package-plan.js';
+
 // RAG — a tudás-oldal: darabolás, vektorizálás, vektor-tároló, keresés (+ rerank, HyDE)
 export * from './lib/rag/chunk.js';
 export * from './lib/rag/embed.js';
