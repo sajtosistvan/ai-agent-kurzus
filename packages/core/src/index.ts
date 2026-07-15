@@ -32,6 +32,9 @@ export * from './lib/tools/upsert-product/product-schema.js';
 export * from './lib/tools/upsert-product/db-readwrite.js';
 
 export * from './lib/tools/search-knowledge/search-knowledge-tool.js';
+export * from './lib/tools/route-to/route-to-tool.js';
+export * from './lib/tools/request-info/request-info-tool.js';
+export * from './lib/tools/cancel-package/cancel-package-tool.js';
 
 // Orchestrator — a multi-agent belépési pont és a flow-lock
 export * from './lib/agents/orchestrator-agent/orchestration-mode.js';
