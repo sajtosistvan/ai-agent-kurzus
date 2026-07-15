@@ -14,6 +14,8 @@ export * from './lib/agents/query-agent/query-agent.js';
 export * from './lib/agents/query-agent/query-prompt.js';
 export * from './lib/agents/ingest-agent/ingest-agent.js';
 export * from './lib/agents/ingest-agent/ingest-prompt.js';
+export * from './lib/agents/package-agent/package-agent.js';
+export * from './lib/agents/package-agent/package-prompt.js';
 
 // A közös tool-eredmény alak
 export * from './lib/tools/tool-outcome.js';
