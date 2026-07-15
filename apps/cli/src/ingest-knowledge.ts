@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n4) KÉSZ — ${written} chunk a knowledge_chunks táblában.`);
-  console.log('   Nézd meg: GET http://localhost:3000/debug/knowledge/sources');
+  console.log('   Nézd meg: GET http://localhost:3001/debug/knowledge/sources');
   await closeKnowledgePool();
 }
 

@@ -21,14 +21,14 @@ import { debugKnowledgeRouter } from './debug-knowledge.js';
 // körről körre növekvő trace fut le, mint a CLI-ben (trace.ts). A böngésző csak a választ kapja.
 // Külön terminálban `tail -f logs/agent.log` ugyanúgy nézhető, mint a CLI-nél.
 //
-// KLIENS: a web app a Vercel AI SDK useChat hookját használja (TextStreamChatTransport), NEM sima
+// KLIENS: a web app a Vercel AI SDK useChat hookját használja (DefaultChatTransport), NEM sima
 // fetch-et. A useChat minden hívásnál a TELJES üzenet-előzményt (UIMessage[]) elküldi — ebből
 // vágjuk le az utolsó (új) user-üzenetet kérdésnek, a többit convertToModelMessages-szel alakítjuk
 // az askAgent `history` opciójává, így a beszélgetés a szerveren is folytatódik körről körre.
 //
-// STREAMING: a válasz TOKENENKÉNT megy ki (streamText a core-ban, res.write() itt) sima
-// szövegként (text/plain) — a TextStreamChatTransport ugyanezt a szöveg-folyamot olvassa be
-// darabonként a kliensen, és alakítja UI-szöveg-deltákká, ahogy megérkeznek.
+// STREAMING: a válasz az AI SDK ÜZENET-streamjeként megy ki (pipeUIMessageStreamToResponse):
+// nemcsak a szöveg-deltákat, hanem a TOOL-HÍVÁSOKAT és -EREDMÉNYEKET is típusos részekként
+// (`tool-runSql`, `tool-searchKnowledge`) — ebből rajzol a kliens kártyát (apps/web/App.tsx).
 
 // Fail-fast: a kulcs/konfiguráció hiányát már indításkor, érthetően jelezzük.
 try {
