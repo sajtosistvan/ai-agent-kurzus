@@ -7,7 +7,17 @@
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["eslint.config.js", "eslint.config.cjs", "eslint.config.mjs"],
+  "exclude": [
+    "eslint.config.js",
+    "eslint.config.cjs",
+    "eslint.config.mjs",
+    "vite.config.ts",
+    "vite.config.mts",
+    "vitest.config.ts",
+    "vitest.config.mts",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ],
   "references": [
     {
       "path": "../../packages/db/tsconfig.lib.json"

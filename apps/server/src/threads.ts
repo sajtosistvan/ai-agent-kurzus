@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { PrismaClient } from '@plantbase/db';
 import type { UIMessage } from 'ai';
 
@@ -36,7 +36,7 @@ export function rowToUIMessage(row: {
   };
 }
 
-export const threadsRouter = Router();
+export const threadsRouter: ExpressRouter = Router();
 
 // GET /api/threads — a lista a chat alá: cím + frissesség, legutóbbi elöl.
 threadsRouter.get('/', async (_req, res) => {
