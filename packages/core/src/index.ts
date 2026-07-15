@@ -46,6 +46,10 @@ export * from './lib/tools/ask-info-agent/ask-info-agent-tool.js';
 export * from './lib/agents/orchestrator-agent/orchestration-mode.js';
 export * from './lib/agents/orchestrator-agent/find-last-flow-signal.js';
 export * from './lib/tools/validate-package/package-plan.js';
+export * from './lib/agents/orchestrator-agent/orchestrator-agent.js';
+export * from './lib/agents/orchestrator-agent/orchestrator-prompt.js';
+export * from './lib/agents/orchestrator-agent/router-handover.js';
+export * from './lib/agents/orchestrator-agent/delegate-handover.js';
 
 // RAG — a tudás-oldal: darabolás, vektorizálás, vektor-tároló, keresés (+ rerank, HyDE)
 export * from './lib/rag/chunk.js';
