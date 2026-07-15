@@ -9,7 +9,6 @@ import {
   type UIMessage,
 } from 'ai';
 import {
-  askAgent,
   loadConfig,
   ConfigError,
   closeReadOnlyPool,
@@ -18,6 +17,7 @@ import {
   closePrisma,
   setWatchLog,
 } from '@plantbase/core';
+import { streamChat } from './chat-stream.js';
 import { debugKnowledgeRouter } from './debug-knowledge.js';
 import {
   threadsRouter,
@@ -103,9 +103,10 @@ app.post('/api/chat', async (req, res) => {
     });
     // Ha egy korábbi futás hibázott, lógó user-üzenet maradhatott a végén — azt kihagyjuk,
     // különben két user-kör kerülne egymás után az előzménybe.
-    const history = await convertToModelMessages(
-      stripDataParts(dropTrailingUserRow(priorRows).map(rowToUIMessage)),
-    );
+    // A data-partokat CSAK a modell-előzményből szűrjük — a flow-lock (chat-stream) pont
+    // ezekből olvassa ki az állapotot, ezért az UI-alakot is megőrizzük.
+    const priorUI = dropTrailingUserRow(priorRows).map(rowToUIMessage);
+    const history = await convertToModelMessages(stripDataParts(priorUI));
 
     // (3) A user-üzenet mentése — a válasz sikerétől függetlenül megmarad.
     await prisma.message.create({
@@ -121,12 +122,9 @@ app.post('/api/chat', async (req, res) => {
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         writer.write({ type: 'data-thread', data: { threadId: thread.id } });
-        // print: true → a teljes trace a szerver konzolján, mint a CLI-ben.
-        await askAgent(question, {
-          print: true,
-          history,
-          onStream: (result) => writer.merge(result.toUIMessageStream()),
-        });
+        // off módban a mai askAgent-út fut változatlanul; router/delegate módban az
+        // orchestrator — a protokoll-transzformáció a chat-stream.ts-ben (egyetlen fájl).
+        await streamChat({ question, history, uiHistory: priorUI, writer });
       },
       onFinish: async ({ responseMessage }) => {
         // Saját try/catch: a stream közben elszálló mentés ne legyen kezeletlen rejection.
