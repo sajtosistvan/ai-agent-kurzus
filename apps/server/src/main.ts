@@ -2,7 +2,12 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import express from 'express';
 import cors from 'cors';
-import { convertToModelMessages, type UIMessage } from 'ai';
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  pipeUIMessageStreamToResponse,
+  type UIMessage,
+} from 'ai';
 import {
   askAgent,
   loadConfig,
@@ -12,7 +17,13 @@ import {
   setWatchLog,
 } from '@plantbase/core';
 import { debugKnowledgeRouter } from './debug-knowledge.js';
-import { threadsRouter } from './threads.js';
+import {
+  threadsRouter,
+  getServerPrisma,
+  clipTitle,
+  rowToUIMessage,
+  stripDataParts,
+} from './threads.js';
 
 // server/main.ts — VÉKONY HTTP-réteg a core agent fölött. A böngészőből érkező kérdés PONTOSAN
 // ugyanazon az úton megy, mint a CLI-ben: askAgent → a Vercel AI SDK agent-loop. A `@plantbase/core`
@@ -23,9 +34,9 @@ import { threadsRouter } from './threads.js';
 // Külön terminálban `tail -f logs/agent.log` ugyanúgy nézhető, mint a CLI-nél.
 //
 // KLIENS: a web app a Vercel AI SDK useChat hookját használja (DefaultChatTransport), NEM sima
-// fetch-et. A useChat minden hívásnál a TELJES üzenet-előzményt (UIMessage[]) elküldi — ebből
-// vágjuk le az utolsó (új) user-üzenetet kérdésnek, a többit convertToModelMessages-szel alakítjuk
-// az askAgent `history` opciójává, így a beszélgetés a szerveren is folytatódik körről körre.
+// fetch-et. A kliens csak az ÚJ üzenetet + a threadId-t küldi; az előzmény a DB-ből jön —
+// az adatbázis az igazságforrás. A DB-sorokat convertToModelMessages-szel alakítjuk az askAgent
+// `history` opciójává, így a beszélgetés a szerveren is folytatódik körről körre.
 //
 // STREAMING: a válasz az AI SDK ÜZENET-streamjeként megy ki (pipeUIMessageStreamToResponse):
 // nemcsak a szöveg-deltákat, hanem a TOOL-HÍVÁSOKAT és -EREDMÉNYEKET is típusos részekként
@@ -61,33 +72,71 @@ function extractText(message: UIMessage): string {
 }
 
 app.post('/api/chat', async (req, res) => {
-  const messages: unknown = req.body?.messages;
-  if (!Array.isArray(messages) || messages.length === 0) {
-    res.status(400).send('Üres beszélgetést nem lehet feltenni.');
-    return;
-  }
-
-  const uiMessages = messages as UIMessage[];
-  const lastMessage = uiMessages[uiMessages.length - 1];
-  const question = lastMessage?.role === 'user' ? extractText(lastMessage) : '';
-  if (question === '') {
+  const { threadId, message } = (req.body ?? {}) as {
+    threadId?: string;
+    message?: UIMessage;
+  };
+  const question = message?.role === 'user' ? extractText(message) : '';
+  if (!message || question === '') {
     res.status(400).send('Üres kérdést nem lehet feltenni.');
     return;
   }
 
+  const prisma = getServerPrisma();
   try {
-    // A korábbi körök (useChat mindig a teljes előzményt küldi) → askAgent history-ja.
-    const history = await convertToModelMessages(uiMessages.slice(0, -1));
-    // print: true → a teljes trace a szerver konzolján, mint a CLI-ben.
+    // (1) Thread: meglévő betöltése vagy új nyitása — a cím az első kérdésből.
+    const thread = threadId
+      ? await prisma.thread.findUnique({ where: { id: threadId } })
+      : await prisma.thread.create({ data: { title: clipTitle(question) } });
+    if (!thread) {
+      res.status(404).send('Nincs ilyen beszélgetés.');
+      return;
+    }
+
+    // (2) Előzmény a DB-ből (a mostani üzenet ELŐTTI állapot) → modell-előzmény.
+    const priorRows = await prisma.message.findMany({
+      where: { threadId: thread.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    const history = await convertToModelMessages(
+      stripDataParts(priorRows.map(rowToUIMessage)),
+    );
+
+    // (3) A user-üzenet mentése — a válasz sikerétől függetlenül megmarad.
+    await prisma.message.create({
+      data: { threadId: thread.id, role: 'user', parts: message.parts as object },
+    });
+
+    // (4) Stream: elöl a data-thread part (ebből tudja meg a kliens az új thread id-t),
+    //     mögé az agent üzenet-streamje; a kész választ az onFinish menti.
     //
     // onStream → az AI SDK ÜZENET-streamje megy ki (nem sima szöveg): a böngésző így nemcsak a
     // válasz betűit kapja meg, hanem a TOOL-HÍVÁSOKAT és a TOOL-EREDMÉNYEKET is, típusos részekként
     // (`tool-runSql`, `tool-searchKnowledge`). Ebből rajzol a kliens kártyát — lásd apps/web/App.tsx.
-    await askAgent(question, {
-      print: true,
-      history,
-      onStream: (result) => result.pipeUIMessageStreamToResponse(res),
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        writer.write({ type: 'data-thread', data: { threadId: thread.id } });
+        // print: true → a teljes trace a szerver konzolján, mint a CLI-ben.
+        await askAgent(question, {
+          print: true,
+          history,
+          onStream: (result) => writer.merge(result.toUIMessageStream()),
+        });
+      },
+      onFinish: async ({ responseMessage }) => {
+        await prisma.message.create({
+          data: {
+            threadId: thread.id,
+            role: 'assistant',
+            parts: responseMessage.parts as object,
+          },
+        });
+        // frissesség a listához
+        await prisma.thread.update({ where: { id: thread.id }, data: { updatedAt: new Date() } });
+      },
+      onError: (error) => (error instanceof Error ? error.message : String(error)),
     });
+    pipeUIMessageStreamToResponse({ response: res, stream });
   } catch (error: unknown) {
     const messageText = error instanceof Error ? error.message : String(error);
     console.error(`plantbase szerver hiba: ${messageText}`);
@@ -110,10 +159,10 @@ const server = app.listen(port, () => {
   console.log(`Plantbase szerver fut: http://localhost:${port}`);
 });
 
-// Tiszta leállás: a pg-poolokat zárjuk, hogy ne maradjon nyitott kapcsolat.
+// Tiszta leállás: a pg-poolokat és a Prisma-kapcsolatot zárjuk, hogy ne maradjon nyitott kapcsolat.
 async function shutdown(): Promise<void> {
   server.close();
-  await Promise.all([closeReadOnlyPool(), closeReadWritePool()]);
+  await Promise.all([closeReadOnlyPool(), closeReadWritePool(), getServerPrisma().$disconnect()]);
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

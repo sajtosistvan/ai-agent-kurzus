@@ -36,6 +36,14 @@ export function rowToUIMessage(row: {
   };
 }
 
+/** A data-* partok (pl. data-thread) CSAK a UI-nak szólnak — a modell-előzménybe nem valók. */
+export function stripDataParts(messages: UIMessage[]): UIMessage[] {
+  return messages.map((m) => ({
+    ...m,
+    parts: m.parts.filter((part) => !part.type.startsWith('data-')),
+  }));
+}
+
 export const threadsRouter: ExpressRouter = Router();
 
 // GET /api/threads — a lista a chat alá: cím + frissesség, legutóbbi elöl.

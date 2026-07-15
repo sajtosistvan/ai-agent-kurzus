@@ -1,4 +1,4 @@
-import { clipTitle, rowToUIMessage } from './threads.js';
+import { clipTitle, rowToUIMessage, stripDataParts } from './threads.js';
 
 describe('clipTitle', () => {
   it('rövid szöveget változatlanul hagy', () => {
@@ -18,5 +18,17 @@ describe('rowToUIMessage', () => {
   it('DB-sorból UIMessage-et épít', () => {
     const msg = rowToUIMessage({ id: 7, role: 'assistant', parts: [{ type: 'text', text: 'szia' }] });
     expect(msg).toEqual({ id: '7', role: 'assistant', parts: [{ type: 'text', text: 'szia' }] });
+  });
+});
+
+describe('stripDataParts', () => {
+  it('kiszűri a data-* partokat, a többit megtartja', () => {
+    const [m] = stripDataParts([
+      { id: '1', role: 'assistant', parts: [
+        { type: 'data-thread', data: { threadId: 'x' } },
+        { type: 'text', text: 'szia' },
+      ] } as never,
+    ]);
+    expect(m.parts).toEqual([{ type: 'text', text: 'szia' }]);
   });
 });
