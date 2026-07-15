@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<title>Voice agent demók — 7. óra</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #181b24; --border: #2a2f3d;
+    --text: #e8eaf0; --dim: #8b92a5;
+    --stt: #4fc3f7; --llm: #ba68c8; --tts: #ffb74d; --ok: #66bb6a; --bad: #ef5350;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: -apple-system, "Segoe UI", sans-serif; font-size: 18px; }
+  header { padding: 16px 28px; border-bottom: 1px solid var(--border);
+           display: flex; align-items: baseline; gap: 20px; }
+  header h1 { font-size: 22px; margin: 0; }
+  header span { color: var(--dim); font-size: 15px; }
+  nav { display: flex; gap: 8px; padding: 14px 28px 0; }
+  nav button { background: var(--panel); color: var(--dim); border: 1px solid var(--border);
+               border-bottom: none; border-radius: 10px 10px 0 0; padding: 12px 22px;
+               font-size: 17px; cursor: pointer; }
+  nav button.active { color: var(--text); background: #1f2330; font-weight: 600; }
+  main { padding: 24px 28px; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .panel { background: var(--panel); border: 1px solid var(--border);
+           border-radius: 12px; padding: 20px 24px; margin-bottom: 18px; }
+  .hint { color: var(--dim); font-size: 15px; margin: 4px 0 14px; }
+  button.big { font-size: 19px; padding: 14px 28px; border-radius: 10px; border: none;
+               cursor: pointer; background: #3d5afe; color: white; font-weight: 600; }
+  button.big:disabled { opacity: .45; cursor: default; }
+  button.big.rec { background: var(--bad); }
+  button.big.stop { background: #555; }
+  label.opt { margin-right: 22px; cursor: pointer; }
+  .row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  /* waterfall */
+  .wf-row { display: flex; align-items: center; margin: 10px 0; gap: 12px; }
+  .wf-label { width: 210px; text-align: right; color: var(--dim); font-size: 15px; flex-shrink: 0; }
+  .wf-track { flex: 1; position: relative; height: 30px; }
+  .wf-bar { position: absolute; top: 0; height: 100%; border-radius: 6px;
+            display: flex; align-items: center; padding-left: 10px;
+            font-size: 14px; font-weight: 600; color: #10131a; white-space: nowrap; }
+  .bubble { background: #232838; border-radius: 10px; padding: 10px 16px; margin: 8px 0;
+            font-size: 17px; }
+  .bubble b { color: var(--dim); font-weight: 600; font-size: 14px; display: block; }
+  .total { font-size: 26px; font-weight: 700; margin-top: 14px; }
+  .total small { font-size: 15px; color: var(--dim); font-weight: 400; }
+  /* event log */
+  .log { background: #0c0e13; border: 1px solid var(--border); border-radius: 10px;
+         padding: 14px; height: 380px; overflow-y: auto; font-family: ui-monospace, monospace;
+         font-size: 14px; line-height: 1.7; }
+  .log .t { color: var(--dim); margin-right: 10px; }
+  .log .user { color: var(--stt); } .log .agent { color: var(--tts); }
+  .log .sys { color: var(--dim); } .log .barge { color: var(--bad); font-weight: 700; }
+  .log .tool { color: var(--llm); } .log .good { color: var(--ok); }
+  .silence { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .silence.alarm { color: var(--bad); }
+  .status { font-size: 15px; color: var(--dim); margin-left: 12px; }
+  .status.live { color: var(--ok); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Beszélő agent — élő demók</h1>
+  <span>7. óra · cascade latency · barge-in &amp; VAD · waiting UX</span>
+</header>
+
+<nav>
+  <button data-tab="cascade" class="active">1 · Cascade latency</button>
+  <button data-tab="realtime">2 · Realtime + barge-in + VAD</button>
+  <button data-tab="filler">3 · Waiting UX (filler)</button>
+</nav>
+
+<main>
+
+<!-- ============ 1. CASCADE ============ -->
+<section class="tab active" id="tab-cascade">
+  <div class="panel">
+    <p class="hint">Nyomd le és tartsd nyomva, beszélj (pl. „Hol van a rendelésem?"), majd engedd el.
+      A pipeline: mikrofon → STT → LLM → TTS → hangszóró. Minden lépés ideje látszik — a latency a rétegek <b>összege</b>.</p>
+    <button id="casc-btn" class="big">🎙 Nyomva tartva beszélj</button>
+    <span id="casc-status" class="status"></span>
+  </div>
+  <div class="panel" id="casc-result" style="display:none">
+    <div class="bubble"><b>Ezt „hallotta" az STT (köztes szöveg = observability!)</b><span id="casc-user"></span></div>
+    <div class="bubble"><b>Ezt válaszolta az LLM</b><span id="casc-reply"></span></div>
+    <div id="casc-waterfall" style="margin-top:18px"></div>
+    <div class="total" id="casc-total"></div>
+  </div>
+</section>
+
+<!-- ============ 2. REALTIME ============ -->
+<section class="tab" id="tab-realtime">
+  <div class="panel">
+    <div class="row">
+      <span>End-of-turn detektálás:</span>
+      <label class="opt"><input type="radio" name="vad" value="server" checked> Server VAD (csend-alapú)</label>
+      <label class="opt"><input type="radio" name="vad" value="semantic"> Semantic VAD (tartalom-alapú)</label>
+      <button id="rt-btn" class="big">Kapcsolódás</button>
+      <span id="rt-status" class="status">nincs kapcsolat</span>
+    </div>
+    <p class="hint">Próbáld ki: <b>(1) barge-in</b> — kérdezz valami hosszút, majd vágj közbe;
+      <b>(2) hezitálás</b> — „a rendelésszámom… őőő… várj, megkeresem" — server VAD-dal félbevág, semantic VAD-dal kivár.</p>
+  </div>
+  <div class="panel">
+    <div class="log" id="rt-log"></div>
+  </div>
+</section>
+
+<!-- ============ 3. FILLER ============ -->
+<section class="tab" id="tab-filler">
+  <div class="panel">
+    <div class="row">
+      <span>Filler-instrukció a promptban:</span>
+      <label class="opt"><input type="radio" name="filler" value="off" checked> KI (anti-pattern: néma csend)</label>
+      <label class="opt"><input type="radio" name="filler" value="on"> BE (informatív filler)</label>
+      <button id="fl-btn" class="big">Kapcsolódás</button>
+      <span id="fl-status" class="status">nincs kapcsolat</span>
+    </div>
+    <p class="hint">Az agent kap egy <b>szándékosan lassú (~6 mp)</b> <code>getOrderStatus</code> toolt.
+      Kérdezd: „Hol tart a tizenkétezer-háromszáznegyvenötös rendelésem?" — először filler nélkül, aztán fillerrel.
+      Ugyanaz a backend-latency: az egyik használhatatlan, a másik teljesen oké.</p>
+    <div class="row" style="margin-top:10px">
+      <span style="color:var(--dim)">Csend a tool-hívás alatt:</span>
+      <span class="silence" id="fl-silence">–</span>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="log" id="fl-log"></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ---------- tab váltás (a többi demó resetelésével) ----------
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll("section.tab").forEach(s =>
+    s.classList.toggle("active", s.id === "tab-" + b.dataset.tab));
+  if (b.dataset.tab !== "cascade") resetCascade();
+  if (b.dataset.tab !== "realtime") resetRealtime();
+  if (b.dataset.tab !== "filler") resetFiller();
+});
+
+// =====================================================================
+// 1. DEMÓ — cascade pipeline waterfall
+// =====================================================================
+const cascBtn = document.getElementById("casc-btn");
+const cascStatus = document.getElementById("casc-status");
+let mediaRecorder = null, recChunks = [], cascAudio = null;
+
+function resetCascade() {
+  if (mediaRecorder?.state === "recording") {
+    mediaRecorder.onstop = null;             // eldobjuk a félbehagyott felvételt
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    mediaRecorder.stop();
+  }
+  mediaRecorder = null;
+  if (cascAudio) { cascAudio.pause(); cascAudio = null; }
+  cascBtn.disabled = false;
+  cascBtn.classList.remove("rec");
+  cascBtn.textContent = "🎙 Nyomva tartva beszélj";
+  cascStatus.textContent = "";
+  document.getElementById("casc-result").style.display = "none";
+}
+
+async function startRec() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  recChunks = [];
+  mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+  mediaRecorder.ondataavailable = e => recChunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    cascBtn.classList.remove("rec");
+    cascBtn.disabled = true;
+    cascStatus.textContent = "pipeline fut… (STT → LLM → TTS)";
+    try {
+      const blob = new Blob(recChunks, { type: "audio/webm" });
+      const r = await fetch("/api/cascade", { method: "POST", body: blob });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error);
+      renderCascade(data);
+      cascAudio = new Audio("data:audio/mp3;base64," + data.audioBase64);
+      cascAudio.play();
+      cascStatus.textContent = "";
+    } catch (err) {
+      cascStatus.textContent = "Hiba: " + err.message;
+    }
+    cascBtn.disabled = false;
+  };
+  mediaRecorder.start();
+  cascBtn.classList.add("rec");
+  cascBtn.textContent = "🔴 Felvétel… engedd el, ha kész";
+}
+cascBtn.onpointerdown = () => { startRec().catch(e => cascStatus.textContent = e.message); };
+cascBtn.onpointerup = () => {
+  cascBtn.textContent = "🎙 Nyomva tartva beszélj";
+  if (mediaRecorder?.state === "recording") mediaRecorder.stop();
+};
+
+function renderCascade(d) {
+  document.getElementById("casc-result").style.display = "block";
+  document.getElementById("casc-user").textContent = d.userText;
+  document.getElementById("casc-reply").textContent = d.replyText;
+
+  // waterfall: a sávok időben egymás UTÁN kezdődnek — ez a lényeg
+  const segments = [
+    { label: "STT (teljes átirat)", start: 0, dur: d.sttMs, color: "var(--stt)" },
+    { label: "LLM first token", start: d.sttMs, dur: d.llmFirstTokenMs, color: "var(--llm)" },
+    { label: "LLM teljes válasz", start: d.sttMs, dur: d.llmTotalMs, color: "color-mix(in srgb, var(--llm) 45%, transparent)" },
+    { label: "TTS first audio byte", start: d.sttMs + d.llmTotalMs, dur: d.ttsFirstByteMs, color: "var(--tts)" },
+    { label: "TTS teljes audio", start: d.sttMs + d.llmTotalMs, dur: d.ttsTotalMs, color: "color-mix(in srgb, var(--tts) 45%, transparent)" },
+  ];
+  const scaleMax = d.totalMs;
+  const wf = document.getElementById("casc-waterfall");
+  wf.innerHTML = segments.map(s => `
+    <div class="wf-row">
+      <div class="wf-label">${s.label}</div>
+      <div class="wf-track">
+        <div class="wf-bar" style="left:${s.start / scaleMax * 100}%;
+             width:${Math.max(s.dur / scaleMax * 100, 3)}%; background:${s.color}">
+          ${s.dur} ms
+        </div>
+      </div>
+    </div>`).join("");
+
+  // "voice-to-voice" közelítés: STT + LLM first token + TTS first byte — ennyi lenne streamelve
+  const streamed = d.sttMs + d.llmFirstTokenMs + d.ttsFirstByteMs;
+  document.getElementById("casc-total").innerHTML =
+    `Összesen (nem streamelt): ${d.totalMs} ms
+     <small>— streamelt pipeline-nal az első hangig kb. ${streamed} ms lenne + VAD-várakozás + hálózat</small>`;
+}
+
+// =====================================================================
+// közös Realtime WebRTC helper (2. és 3. demóhoz)
+// =====================================================================
+async function connectRealtime(sessionParams, onEvent) {
+  const tokenRes = await fetch("/api/realtime-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sessionParams),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenRes.ok) throw new Error(tokenData.error);
+
+  const pc = new RTCPeerConnection();
+  const audioEl = document.createElement("audio");
+  audioEl.autoplay = true;
+  pc.ontrack = e => { audioEl.srcObject = e.streams[0]; };
+
+  const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+  pc.addTrack(mic.getTracks()[0]);
+
+  const dc = pc.createDataChannel("oai-events");
+  dc.addEventListener("message", e => onEvent(JSON.parse(e.data), dc));
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  const sdpRes = await fetch("https://api.openai.com/v1/realtime/calls?model=gpt-realtime", {
+    method: "POST",
+    body: offer.sdp,
+    headers: { Authorization: `Bearer ${tokenData.value}`, "Content-Type": "application/sdp" },
+  });
+  await pc.setRemoteDescription({ type: "answer", sdp: await sdpRes.text() });
+
+  return {
+    dc,
+    close() {
+      mic.getTracks().forEach(t => t.stop());
+      pc.close();
+      audioEl.srcObject = null;
+    },
+  };
+}
+
+function logger(el) {
+  return (cls, text) => {
+    const t = new Date().toLocaleTimeString("hu-HU", { hour12: false }) +
+      "." + String(Date.now() % 1000).padStart(3, "0");
+    el.insertAdjacentHTML("beforeend",
+      `<div><span class="t">${t}</span><span class="${cls}">${text}</span></div>`);
+    el.scrollTop = el.scrollHeight;
+  };
+}
+
+// =====================================================================
+// 2. DEMÓ — realtime, barge-in, VAD összehasonlítás
+// =====================================================================
+const rtBtn = document.getElementById("rt-btn");
+const rtStatus = document.getElementById("rt-status");
+const rtLog = logger(document.getElementById("rt-log"));
+let rtConn = null, rtResponding = false;
+
+function resetRealtime() {
+  if (rtConn) { rtConn.close(); rtConn = null; }
+  rtResponding = false;
+  rtBtn.disabled = false;
+  rtBtn.textContent = "Kapcsolódás";
+  rtStatus.textContent = "nincs kapcsolat";
+  rtStatus.classList.remove("live");
+  document.getElementById("rt-log").innerHTML = "";
+}
+
+rtBtn.onclick = async () => {
+  if (rtConn) { resetRealtime(); return; }
+  const vad = document.querySelector('input[name="vad"]:checked').value;
+  rtBtn.disabled = true;
+  rtStatus.textContent = "kapcsolódás…";
+  try {
+    rtConn = await connectRealtime({ vad, mode: "chat" }, ev => {
+      switch (ev.type) {
+        case "session.created":
+          rtLog("sys", `session létrejött — VAD: ${vad === "semantic" ? "semantic_vad" : "server_vad"}`);
+          break;
+        case "input_audio_buffer.speech_started":
+          if (rtResponding) rtLog("barge", "⚡ BARGE-IN — közbevágtál, a playback leáll, a history truncálódik");
+          else rtLog("sys", "🎙 beszéd kezdete (VAD)");
+          break;
+        case "input_audio_buffer.speech_stopped":
+          rtLog("sys", "⏹ end-of-turn — a VAD szerint befejezted");
+          break;
+        case "conversation.item.input_audio_transcription.completed":
+          rtLog("user", "TE (transcript, közelítés!): " + ev.transcript);
+          break;
+        case "response.created":
+          rtResponding = true; break;
+        case "response.done":
+          rtResponding = false; break;
+        case "response.output_audio_transcript.done":
+          rtLog("agent", "AGENT: " + ev.transcript);
+          break;
+        case "conversation.item.truncated":
+          rtLog("barge", "✂ history truncálva — csak a ténylegesen lejátszott rész marad meg");
+          break;
+        case "error":
+          rtLog("barge", "HIBA: " + (ev.error?.message || JSON.stringify(ev)));
+          break;
+      }
+    });
+    rtBtn.textContent = "Bontás";
+    rtStatus.textContent = "● élő — beszélj!";
+    rtStatus.classList.add("live");
+  } catch (err) {
+    rtStatus.textContent = "Hiba: " + err.message;
+  }
+  rtBtn.disabled = false;
+};
+
+// =====================================================================
+// 3. DEMÓ — waiting UX: lassú tool + filler ki/be
+// =====================================================================
+const flBtn = document.getElementById("fl-btn");
+const flStatus = document.getElementById("fl-status");
+const flLog = logger(document.getElementById("fl-log"));
+const flSilence = document.getElementById("fl-silence");
+let flConn = null, silenceTimer = null, agentSpokeDuringTool = false, toolTimeout = null;
+
+function resetFiller() {
+  if (flConn) { flConn.close(); flConn = null; }
+  clearTimeout(toolTimeout); toolTimeout = null;
+  stopSilenceClock();
+  flBtn.disabled = false;
+  flBtn.textContent = "Kapcsolódás";
+  flStatus.textContent = "nincs kapcsolat";
+  flStatus.classList.remove("live");
+  flSilence.textContent = "–";
+  flSilence.classList.remove("alarm");
+  document.getElementById("fl-log").innerHTML = "";
+}
+
+const TOOL_DELAY_MS = 6000;
+const FAKE_ORDER = {
+  orderId: "12345", status: "kiszállítás alatt",
+  courier: "GLS", expected: "csütörtök", note: "a visszaküldés 30 napig ingyenes",
+};
+
+function startSilenceClock() {
+  const t0 = Date.now();
+  agentSpokeDuringTool = false;
+  flSilence.classList.add("alarm");
+  silenceTimer = setInterval(() => {
+    if (agentSpokeDuringTool) { flSilence.classList.remove("alarm"); return; }
+    flSilence.textContent = ((Date.now() - t0) / 1000).toFixed(1) + " s";
+  }, 100);
+}
+function stopSilenceClock() {
+  clearInterval(silenceTimer); silenceTimer = null;
+}
+
+flBtn.onclick = async () => {
+  if (flConn) { resetFiller(); return; }
+  const filler = document.querySelector('input[name="filler"]:checked').value === "on";
+  flBtn.disabled = true;
+  flStatus.textContent = "kapcsolódás…";
+  try {
+    flConn = await connectRealtime({ vad: "semantic", mode: "tool", filler }, (ev, dc) => {
+      switch (ev.type) {
+        case "session.created":
+          flLog("sys", `session létrejött — filler-instrukció: ${filler ? "BE" : "KI"}`);
+          break;
+        case "conversation.item.input_audio_transcription.completed":
+          flLog("user", "TE: " + ev.transcript);
+          break;
+        case "response.output_audio_transcript.done":
+          flLog("agent", "AGENT: " + ev.transcript);
+          if (silenceTimer) agentSpokeDuringTool = true;
+          break;
+        case "response.function_call_arguments.done": {
+          flLog("tool", `🔧 tool-hívás: getOrderStatus(${ev.arguments}) — a backend most ${TOOL_DELAY_MS / 1000} mp-ig "dolgozik"…`);
+          startSilenceClock();
+          toolTimeout = setTimeout(() => {
+            stopSilenceClock();
+            if (dc.readyState !== "open") return;   // közben bontottunk
+            flLog("good", "✓ tool-eredmény megjött, küldés a modellnek");
+            dc.send(JSON.stringify({
+              type: "conversation.item.create",
+              item: { type: "function_call_output", call_id: ev.call_id,
+                      output: JSON.stringify(FAKE_ORDER) },
+            }));
+            dc.send(JSON.stringify({ type: "response.create" }));
+          }, TOOL_DELAY_MS);
+          break;
+        }
+        case "error":
+          flLog("barge", "HIBA: " + (ev.error?.message || JSON.stringify(ev)));
+          break;
+      }
+    });
+    flBtn.textContent = "Bontás";
+    flStatus.textContent = "● élő — kérdezd a rendelésed!";
+    flStatus.classList.add("live");
+    flSilence.textContent = "–";
+  } catch (err) {
+    flStatus.textContent = "Hiba: " + err.message;
+  }
+  flBtn.disabled = false;
+};
+</script>
+</body>
+</html>
