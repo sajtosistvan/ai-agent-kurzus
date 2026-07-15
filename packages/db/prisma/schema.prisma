@@ -56,6 +56,7 @@ model Product {
   rating          Decimal  @db.Decimal(3, 2) // 0-5
   reviewsCount    Int      @map("reviews_count")
   description     String
+  packageItems    PackageItem[]
 
   @@map("products")
 }
@@ -77,6 +78,7 @@ model Customer {
   notes           String // döntést befolyásoló kontextus (fény, stílus, öntözési hajlandóság)
   createdAt       DateTime @default(now()) @map("created_at")
   threads         Thread[]
+  packages        Package[]
 
   @@map("customers")
 }
@@ -106,4 +108,30 @@ model Message {
 
   @@index([threadId])
   @@map("messages")
+}
+
+// packages + package_items — az ELMENTETT ügyfél-csomagok. A csomag-agent CSAK validált
+// csomagot írhat ide (savePackage tool, mentés előtt újra-validálással). A customer_id FK
+// a customers-re: egy csomag mindig egy konkrét ügyfélé, a budget-korlát is az övé volt.
+model Package {
+  id         Int           @id @default(autoincrement())
+  customerId Int           @map("customer_id")
+  customer   Customer      @relation(fields: [customerId], references: [id])
+  totalPrice Decimal       @map("total_price") @db.Decimal(12, 2)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  items      PackageItem[]
+
+  @@map("packages")
+}
+
+model PackageItem {
+  id        Int     @id @default(autoincrement())
+  packageId Int     @map("package_id")
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  productId Int     @map("product_id")
+  product   Product @relation(fields: [productId], references: [id])
+  qty       Int
+
+  @@index([packageId])
+  @@map("package_items")
 }
