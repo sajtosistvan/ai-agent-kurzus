@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToolCard } from '@/components/tool-card';
 import { ThreadList } from '@/components/thread-list';
+import { AgentBadge, ToolChip } from '@/components/agent-chips';
+import { PackageSummary } from '@/components/package-summary';
 import { splitAssistantParts } from '@/lib/message-parts';
 import {
   MessageScroller,
@@ -124,7 +126,7 @@ export default function App() {
                 </p>
               )}
               {messages.map((m) => {
-                const { text, toolParts } = splitAssistantParts(m);
+                const { text, toolParts, agent, toolEvents, packagePlan } = splitAssistantParts(m);
                 return (
                   <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === 'user'}>
                     <div className={m.role === 'user' ? 'text-right' : 'text-left'}>
@@ -134,6 +136,11 @@ export default function App() {
                         </span>
                       ) : (
                         <div className="inline-block max-w-[85%] text-left">
+                          {/* Orchestrált mód: KI beszél (badge) + a döntések/tool-futások chipjei. */}
+                          {agent && <AgentBadge agent={agent} />}
+                          {toolEvents.map((event, index) => (
+                            <ToolChip key={`${m.id}-event-${index}`} event={event} />
+                          ))}
                           {/* ELŐSZÖR a tool-lépések (mit csinált), UTÁNA a válasz (mit mond). */}
                           {toolParts.map((part, index) => (
                             <ToolCard
@@ -144,6 +151,14 @@ export default function App() {
                               output={part.output}
                             />
                           ))}
+                          {packagePlan && (
+                            <PackageSummary
+                              plan={packagePlan}
+                              disabled={loading}
+                              onConfirm={() => void sendMessage({ text: 'Rendben, mentsd el a csomagot.' })}
+                              onModify={() => void sendMessage({ text: 'Módosítanék a csomagon.' })}
+                            />
+                          )}
                           {text !== '' && (
                             <div className="prose prose-sm prose-neutral bg-muted rounded-lg px-3 py-2 prose-p:my-1 prose-headings:mt-2 prose-headings:mb-1 prose-ul:my-1 prose-ol:my-1">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
