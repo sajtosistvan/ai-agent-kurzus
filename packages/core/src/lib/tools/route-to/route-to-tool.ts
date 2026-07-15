@@ -45,7 +45,9 @@ export const routeToTool = (report?: ToolReporter) =>
       '(katalógus, árak, készlet, gondozás). package-agent: ügyfél-csomag összeállítása, módosítása, ' +
       'mentése vagy lemondása. MINDIG pontosan egyszer hívd, magyar indoklással.',
     inputSchema: z.object({
-      agent: z.enum(AGENTS).describe('A cél-agent.'),
+      // Permissive külső séma: a szigorú kaput a belső InputSchema (z.enum) adja, így az
+      // ismeretlen agent-név magyar ToolOutcome-hibába fut, nem az SDK-validációba.
+      agent: z.string().describe(`A cél-agent: ${AGENTS.join(' | ')}.`),
       reason: z.string().describe('Rövid magyar indoklás — a demó trace-ében ez látszik.'),
     }),
     execute: async (input, { toolCallId }) => {
