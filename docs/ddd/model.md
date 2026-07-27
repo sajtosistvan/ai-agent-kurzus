@@ -29,9 +29,31 @@ hivatkozik rá, pl. ACME). Attribútum-csoportok:
   `Product.difficulty` skálája), `petSafeRequired`, `kidSafeRequired`
 - **Kontextus:** `notes` (fény, stílus, öntözési hajlandóság)
 
+### Package (növénycsomag) + PackageItem — aggregátum
+
+Egy ügyfélhez összeállított, **perzisztált** növény-válogatás (a `packages` tábla; korábban csak
+fogalom volt). A `Package` az aggregátum-gyökér, a `PackageItem`-ek a részei (cascade törléssel).
+
+- **Package:** `id`, `customerId` (FK → `Customer`), `totalPrice` (HUF), `createdAt`, `items`
+- **PackageItem:** `id`, `packageId` (FK → `Package`), `productId` (FK → `Product`), `qty`
+- **Írási út:** kizárólag a package-agent `savePackage` toolja (újra-validálás + tranzakció);
+  a `validatePackage` a determinisztikus ellenőrzés (kemény keret-korlát), a mentés előtt.
+
+### KnowledgeChunk (tudásbázis-darab) — a RAG „R"-je
+
+A gondozási tudásbázis egy darabja (a `knowledge_chunks` tábla, `pgvector`). A lakberendezői
+kérdéseket a katalógus mellett ez a szövegkorpusz is táplálja.
+
+- **Attribútumok:** `id`, `source` (forrás-URL/cikk), `title`, `category`, `chunkIndex`,
+  `content` (a szöveg-darab), `embedding` (`vector(1536)`)
+- **Keresés:** koszinusz-távolság (`embedding <=> query`), top-K; a folyamat: kérdés → (HyDE) →
+  embedding → pgvector → (rerank) → kontextus. A `search-knowledge` tool a modell-felület.
+
 ## Kapcsolatok
 
-- Lakberendező → Ügyfél (`Customer`, a `customers` táblából a `queryCustomers` toollal) + Katalógus (`Product`) → ajánlat (növénycsomag, v1-ben nem tárolt).
+- Lakberendező → Ügyfél (`Customer`, a `customers` táblából a `queryCustomers` toollal) +
+  Katalógus (`Product`) → **Növénycsomag** (`Package` + `PackageItem`, perzisztált; `savePackage`).
+- Kérdés → **KnowledgeChunk** korpusz (RAG-keresés) + Katalógus (`Product`, `runSql`) → válasz.
 
 ## Nyitott kérdések (javaslat, nem döntés)
 

@@ -16,4 +16,9 @@
 | **Nehézség** | `Product.difficulty` | Milyen szintű gazdinak való a növény: kezdő \| haladó \| profi. Ugyanez a skála, mint a `Customer.expertiseLevel`. |
 | **Akció / akciós ár** | `Product.salePrice` | Kedvezményes ár; `null`, ha a termék nincs akcióban. |
 | **Raktárkészlet** | `Product.stock` | Elérhető darabszám. |
-| **Növénycsomag** | (nincs kódban) | Egy szobához/ügyfélhez összeállított növény-válogatás; v1-ben csak fogalom, nem tárolt entitás. |
+| **Növénycsomag** | `Package` (`packages` tábla) | Egy ügyfélhez összeállított, **perzisztált** növény-válogatás (aggregátum-gyökér); a `savePackage` tool írja, FK az ügyfélre. |
+| **Csomag-tétel** | `PackageItem` (`package_items` tábla) | A növénycsomag egy sora: melyik termékből (`productId`) mennyi (`qty`); a csomag törlésével kaszkádolva törlődik. |
+| **Csomag-validálás** | `validatePackage` tool | Determinisztikus ellenőrzés mentés előtt (kemény keret-korlát, készlet, pet/kid-safe); a `savePackage` újra lefuttatja tranzakcióban. |
+| **Tudásbázis** | `knowledge_chunks` tábla (`pgvector`) | Gondozási szövegkorpusz darabokra (chunk) bontva, embeddinggel; a RAG-keresés forrása. |
+| **Chunk** | `KnowledgeChunk` (`knowledge_chunks` sor) | A tudásbázis egy szöveg-darabja (`content`) forrással (`source`) és embeddinggel (`vector(1536)`). |
+| **RAG / tudásbázis-keresés** | `retrieveKnowledge`, `search-knowledge` tool | Kérdés → (HyDE) → embedding → pgvector koszinusz-keresés → (rerank) → kontextus; a válasz forrásokra támaszkodik. |
