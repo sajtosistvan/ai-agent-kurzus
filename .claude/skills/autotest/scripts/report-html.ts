@@ -16,7 +16,7 @@ interface QResult {
   id: string;
   q: string;
   ms: number;
-  ttfcMs?: number;
+  ttfcMs?: number | null;
   tokens?: number | null;
   answer: string;
   flags: string[];
@@ -47,7 +47,7 @@ interface BatteryData {
     totalQuestions: number;
     flaggedCount: number;
     avgMs: number;
-    avgTtfcMs?: number;
+    avgTtfcMs?: number | null;
     totalTokens?: number;
     avgTokens?: number;
   };

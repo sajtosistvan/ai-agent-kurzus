@@ -97,18 +97,24 @@ async function setHud(page: Page, phase: string, tone: 'run' | 'ok' | 'fail' = '
  * Üzenet küldése + két latency-mérés: TTFC (time-to-first-character: az első nem-üres
  * válasz-buborék megjelenése) és a teljes idő (streaming vége). A böngésző DOM-jából mérve.
  */
-async function sendAndMeasure(page: Page, message: string): Promise<{ answer: string; ttfcMs: number }> {
-  const before = await page.locator('.prose').count();
+// Egy üzenet-konténer a web UI-ban (user és asszisztens is): data-slot="message-scroller-item".
+const MSG_ITEM = '[data-slot="message-scroller-item"]';
+
+async function sendAndMeasure(page: Page, message: string): Promise<{ answer: string; ttfcMs: number | null }> {
+  // Az UTOLSÓ üzenet-konténer .prose-át olvassuk (nem a globális .prose-listát) — így multi-turnnél
+  // nem a KORÁBBI kör szövegét kapjuk, ha az aktuális kör csak PackageSummary kártyát ad szöveg nélkül.
+  const before = await page.locator(MSG_ITEM).count();
   const t0 = Date.now();
   await page.getByPlaceholder('Írd be a kérdésed…').fill(message);
   await setHud(page, '✍️ kérdés beírása…');
   await page.keyboard.press('Enter');
   await setHud(page, '⏳ várakozás a válaszra…');
 
-  let ttfcMs = 0;
+  const lastAssistantProse = () => page.locator(MSG_ITEM).last().locator('.prose');
+  let ttfcMs: number | null = null; // null = nem érkezett szöveges válasz (timeout / csak kártya) — NEM 0
   while (Date.now() - t0 < ANSWER_TIMEOUT_MS) {
-    if ((await page.locator('.prose').count()) > before) {
-      const txt = await page.locator('.prose').last().innerText().catch(() => '');
+    if ((await page.locator(MSG_ITEM).count()) > before) {
+      const txt = await lastAssistantProse().innerText().catch(() => '');
       if (txt.trim().length > 0) {
         ttfcMs = Date.now() - t0;
         await setHud(page, `💬 válasz érkezik… (első karakter ${(ttfcMs / 1000).toFixed(1)} s)`);
@@ -118,7 +124,7 @@ async function sendAndMeasure(page: Page, message: string): Promise<{ answer: st
     await page.waitForTimeout(50);
   }
   await page.getByText('gondolkodik…').waitFor({ state: 'hidden', timeout: ANSWER_TIMEOUT_MS }).catch(() => undefined);
-  const answer = ((await page.locator('.prose').last().innerText().catch(() => '')) ?? '').trim();
+  const answer = ((await lastAssistantProse().innerText().catch(() => '')) ?? '').trim();
   await setHud(page, `✅ válasz kész (${((Date.now() - t0) / 1000).toFixed(1)} s) — ellenőrzés…`);
   return { answer, ttfcMs };
 }
@@ -260,7 +266,7 @@ interface Result {
   q: string;
   ms: number;
   /** Time to first character: az első válasz-karakter megjelenéséig eltelt idő (ms). */
-  ttfcMs: number;
+  ttfcMs: number | null;
   /** LLM-token (input+output) a kérdéshez — a szerver trace-éből (null, ha nem olvasható). */
   tokens: number | null;
   answer: string;
@@ -412,13 +418,13 @@ async function askConversation(page: Page, c: ConversationCase): Promise<Result>
   const turns: { user: string; assistant: string }[] = [];
   // Turn efficiency: melyik körben ÉRTE EL ELŐSZÖR a célt (kevesebb kör = hatékonyabb).
   let turnsToGoal = 0;
-  let ttfcMs = 0;
+  let ttfcMs: number | null = null;
   let turnNo = 0;
   for (const message of c.steps) {
     turnNo++;
     hudSub = `${turnNo}/${c.steps.length}. kör: ${message}`;
     const turn = await sendAndMeasure(page, message);
-    if (ttfcMs === 0) ttfcMs = turn.ttfcMs; // az első kör TTFC-je jellemzi a válaszkészséget
+    if (turnNo === 1) ttfcMs = turn.ttfcMs; // az első kör TTFC-je jellemzi a válaszkészséget (lehet null)
     turns.push({ user: message, assistant: turn.answer });
     // Csak a goal-irányított (DB-mentés) esetnél nézünk per-kört; az expect-célt az utolsó
     // körre értékeljük (lentebb), különben egy korábbi körben véletlenül megjelenő érték félrevinne.
@@ -656,7 +662,9 @@ async function main(): Promise<void> {
   // Strukturált kimenet a HTML-riport-generátornak (autotest skill: report-html.ts).
   const jsonFile = join('logs/flow-test', `${stamp}-battery.json`);
   const avg = Math.round(results.reduce((s, r) => s + r.ms, 0) / results.length);
-  const avgTtfc = Math.round(results.reduce((s, r) => s + r.ttfcMs, 0) / results.length);
+  // A TTFC átlagba csak a szöveges (nem-null) válaszok számítanak — a timeout/csak-kártya kör null.
+  const ttfcVals = results.map((r) => r.ttfcMs).filter((v): v is number => v != null);
+  const avgTtfc = ttfcVals.length ? Math.round(ttfcVals.reduce((s, v) => s + v, 0) / ttfcVals.length) : null;
   const withTokens = results.filter((r) => r.tokens != null);
   const totalTokens = withTokens.reduce((s, r) => s + (r.tokens ?? 0), 0);
   writeFileSync(
