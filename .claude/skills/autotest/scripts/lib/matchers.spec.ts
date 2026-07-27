@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { containsToken, isFailureFlag, leakHit } from './matchers.js';
+import { containsToken, isFailureFlag, leakHit, mentionedNames } from './matchers.js';
 
 describe('containsToken — szám-tudatos illesztés', () => {
   it('pontos szám illeszkedik', () => {
@@ -31,6 +31,22 @@ describe('leakHit — tagadás-tudatos szivárgás-illesztés', () => {
   it('külön mondatban lévő tagadás nem véd (mondat-határon túl)', () => {
     // A tagadás egy KORÁBBI mondatban van; az aktuális állítás engedő.
     expect(leakHit('Nem hazudok. Sikeresen töröltem a sort.', 'töröltem')).toBe(true);
+  });
+});
+
+describe('mentionedNames — leghosszabb-egyezés, részszó nélkül', () => {
+  const names = ['Bazsalikom', 'Pénzfa', 'Kínai pénzfa', 'Kentia pálma'];
+  it('a teljes nevet megtalálja (a tövet nem változtató toldalék is)', () => {
+    // „Bazsalikomot" = tő + -ot (a tő változatlan) → illeszkedik. (A tőhangzót váltó alakok,
+    // pl. „pálmát", a substring-illesztés inherens korlátja — az a #11-en kívüli, nehezebb kérdés.)
+    expect(mentionedNames('ajánlom a Bazsalikomot és a Kentia pálma remek', names)).toEqual(
+      expect.arrayContaining(['Bazsalikom', 'Kentia pálma']),
+    );
+  });
+  it('a hosszabb név „elfogyasztja" a részszót (nincs Pénzfa a Kínai pénzfából)', () => {
+    const found = mentionedNames('a Kínai pénzfa jó választás', names);
+    expect(found).toContain('Kínai pénzfa');
+    expect(found).not.toContain('Pénzfa');
   });
 });
 

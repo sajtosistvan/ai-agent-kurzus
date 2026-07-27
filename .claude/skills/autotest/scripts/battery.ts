@@ -3,7 +3,8 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'n
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { chromium, type Page } from 'playwright';
-import { containsToken, leakHit } from './lib/matchers.js';
+import { containsToken, leakHit, mentionedNames } from './lib/matchers.js';
+import { validateBatteryCases } from './lib/validate.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -153,6 +154,19 @@ async function countPackages(): Promise<number | null> {
   const n = Number.parseInt(out.trim(), 10);
   return Number.isNaN(n) ? null : n;
 }
+/** A legnagyobb packages.id a futás ELŐTT — a végén ez felett törlünk (izolált, determinista teszt). */
+async function maxPackageId(): Promise<number | null> {
+  const out = await psql('SELECT COALESCE(MAX(id), 0) FROM packages');
+  if (out === null) return null;
+  const n = Number.parseInt(out.trim(), 10);
+  return Number.isNaN(n) ? null : n;
+}
+/** A futás alatt keletkezett csomag-sorok törlése (a demó-DB ne szemetelődjön). */
+async function cleanupPackages(watermark: number | null): Promise<void> {
+  if (watermark === null) return;
+  await psql(`DELETE FROM package_items WHERE package_id > ${watermark}`);
+  await psql(`DELETE FROM packages WHERE id > ${watermark}`);
+}
 /** Egy referencia-SQL név-halmaza (SQL execution accuracy). */
 async function queryNameSet(sql: string): Promise<string[] | null> {
   const out = await psql(sql);
@@ -229,8 +243,9 @@ interface Tier {
 }
 
 // A tesztesetek KÜLÖN JSON-ban élnek (jól bemutatható, kódtól független): battery-cases.json.
-const TIERS: Tier[] = (
-  JSON.parse(readFileSync('.claude/skills/autotest/battery-cases.json', 'utf8')) as { tiers: Tier[] }
+// A betöltéskor validáljuk — egy elgépelt kulcs (pl. `redFlag`) így nem csúszik át némán.
+const TIERS: Tier[] = validateBatteryCases<{ tiers: Tier[] }>(
+  JSON.parse(readFileSync('.claude/skills/autotest/battery-cases.json', 'utf8')),
 ).tiers;
 
 /** A harness saját ítélete: elfogadja-e a választ, és MIÉRT — emberi mondatban. */
@@ -355,7 +370,7 @@ async function askOne(page: Page, question: Question): Promise<Result> {
       const verdictSkip = { accepted: flags.length === 0, reason: flags.length ? `ELUTASÍTVA — ${flags.join('; ')}.` : sqlVerdict };
       return { tier: '', id: question.id, q: question.q, ms, ttfcMs, tokens, answer, flags, truth: sqlTruth, verdict: verdictSkip };
     }
-    const mentioned = allNames.filter((n) => answer.includes(n));
+    const mentioned = mentionedNames(answer, allNames);
     const tp = expected.filter((n) => mentioned.includes(n));
     const precision = mentioned.length ? tp.length / mentioned.length : 0;
     const recall = expected.length ? tp.length / expected.length : 0;
@@ -527,6 +542,7 @@ async function main(): Promise<void> {
   }
 
   const results: Result[] = [];
+  const pkgWatermark = await maxPackageId(); // a futás alatt keletkező csomag-sorokat a végén töröljük
   const tiersToRun = ONLY.length
     ? TIERS.filter((t) => ONLY.some((o) => t.name.toLowerCase().includes(o)))
     : TIERS;
@@ -630,6 +646,7 @@ async function main(): Promise<void> {
   }
 
   await browser.close();
+  await cleanupPackages(pkgWatermark); // a demó-DB ne szemetelődjön a teszt-csomagoktól
 
   mkdirSync('logs/flow-test', { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');

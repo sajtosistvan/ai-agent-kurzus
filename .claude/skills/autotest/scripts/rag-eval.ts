@@ -4,6 +4,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { embedBatch, loadConfig, retrieveKnowledge } from '@plantbase/core';
 import { coerceArray, parseJsonLoose } from './lib/json-loose.js';
+import { validateRagCases } from './lib/validate.js';
 
 // rag-eval.ts — RAGAS-stílusú RAG-kiértékelés, in-repo, TS-ben, LÁTHATÓ számítással.
 // Nem a böngésző-battery: ez közvetlenül a pipeline-t hajtja, mert a metrikákhoz látni kell a
@@ -29,8 +30,8 @@ interface EvalCase {
 
 // A korpusz gondozási cikkek (ask-the-sill, plants-101). A kérdések ezt célozzák.
 // A RAG-esetek KÜLÖN JSON-ban élnek (jól bemutatható): rag-cases.json.
-const CASES: EvalCase[] = (
-  JSON.parse(readFileSync('.claude/skills/autotest/rag-cases.json', 'utf8')) as { cases: EvalCase[] }
+const CASES: EvalCase[] = validateRagCases<{ cases: EvalCase[] }>(
+  JSON.parse(readFileSync('.claude/skills/autotest/rag-cases.json', 'utf8')),
 ).cases;
 
 const cfg = loadConfig();
@@ -77,6 +78,17 @@ async function genText(prompt: string): Promise<string> {
 async function askJson<T>(prompt: string): Promise<T | null> {
   const text = await genText(prompt);
   return (parseJsonLoose(text) as T) ?? null;
+}
+
+/**
+ * JSON-TÖMBÖT váró judge-hívás, EGY retryval: ha az első válasz nem ad (nem-üres) tömböt — ritka
+ * parse-hiba —, még egyszer megkérdezzük, mielőtt üresre (csupa-false) esnénk. Ez a #13 szerinti
+ * védelem a csendes 0 faithfulness / 1.0 noise ellen.
+ */
+async function askJsonArray<T>(prompt: string): Promise<T[]> {
+  let arr = coerceArray<T>(await askJson<unknown>(prompt));
+  if (arr.length === 0) arr = coerceArray<T>(await askJson<unknown>(prompt));
+  return arr;
 }
 
 
@@ -162,13 +174,12 @@ async function judgeChunkRelevance(
   question: string,
   contexts: string[],
 ): Promise<{ relevant: boolean; reason: string }[]> {
-  const raw = await askJson<unknown>(
+  const result = await askJsonArray<{ relevant: boolean; reason: string }>(
     'Döntsd el minden FORRÁS-részletről, hogy releváns-e (hasznos-e) az adott KÉRDÉS ' +
       'megválaszolásához. Szigorú JSON tömb, a forrásokkal azonos sorrendben: ' +
       '[{"relevant": true, "reason": "rövid magyar indok"}].\n\n' +
       `KÉRDÉS: ${question}\n\nFORRÁSOK:\n${contexts.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')}`,
   );
-  const result = coerceArray<{ relevant: boolean; reason: string }>(raw);
   return contexts.map((_, i) => ({
     relevant: Boolean(result[i]?.relevant),
     reason: result[i]?.reason ?? '—',
@@ -177,14 +188,13 @@ async function judgeChunkRelevance(
 
 /** LLM-judge: a referencia-válasz állításait megtalálni-e a visszakapott chunkokban (recall). */
 async function judgeRecall(refClaims: string[], contexts: string[]): Promise<RecallEval[]> {
-  const raw = await askJson<unknown>(
+  const result = await askJsonArray<{ covered: boolean; reason: string }>(
     'Döntsd el minden ELVÁRT ÁLLÍTÁSRÓL, hogy megtalálható-e (alátámasztható-e) a FORRÁSOKBAN. ' +
       'Szigorú JSON tömb, az állításokkal azonos sorrendben: ' +
       '[{"covered": true, "reason": "rövid magyar indok"}].\n\n' +
       `FORRÁSOK:\n${contexts.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')}\n\n` +
       `ELVÁRT ÁLLÍTÁSOK:\n${refClaims.map((c, i) => `${i + 1}. ${c}`).join('\n')}`,
   );
-  const result = coerceArray<{ covered: boolean; reason: string }>(raw);
   return refClaims.map((claim, i) => ({
     claim,
     covered: Boolean(result[i]?.covered),
@@ -196,7 +206,7 @@ async function judgeRecall(refClaims: string[], contexts: string[]): Promise<Rec
 async function faithfulness(answer: string, contexts: string[]): Promise<ClaimEval[]> {
   const claims = splitSentences(answer).slice(0, 6);
   if (claims.length === 0) return [];
-  const raw = await askJson<unknown>(
+  const result = await askJsonArray<{ supported: boolean; reason: string }>(
     'Egy RAG-válasz állításait kell ellenőrizned a FORRÁSOK alapján. Minden állításról döntsd el, ' +
       'hogy a források ALÁTÁMASZTJÁK-e (supported: true), vagy nem/ellentmond (false). ' +
       'Csak a forrásokra támaszkodj, ne a saját tudásodra. Szigorú JSON tömb, az állításokkal ' +
@@ -204,7 +214,6 @@ async function faithfulness(answer: string, contexts: string[]): Promise<ClaimEv
       `FORRÁSOK:\n${contexts.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')}\n\n` +
       `ÁLLÍTÁSOK:\n${claims.map((c, i) => `${i + 1}. ${c}`).join('\n')}`,
   );
-  const result = coerceArray<{ supported: boolean; reason: string }>(raw);
   return claims.map((claim, i) => ({
     claim,
     supported: Boolean(result[i]?.supported),
@@ -252,14 +261,14 @@ async function noiseSensitivity(
   return { answer: noisyAnswer, supported, total, score, claims };
 }
 
-type Hit = { content: string; title: string; distance: number };
-
 async function evalCase(c: EvalCase): Promise<CaseResult> {
   usageTokens = 0;
   const t0 = Date.now();
 
-  const { hits } = (await retrieveKnowledge(c.question, { topK: TOP_K })) as { hits: Hit[] };
-  const contexts = hits.map((h) => h.content);
+  // A core RetrieveResult-ját használjuk cast nélkül — a saját `type Hit` + `as` elrejtette volna
+  // egy jövőbeli breaking change-et (konvenciok.md).
+  const { hits } = await retrieveKnowledge(c.question, { topK: TOP_K });
+  const contexts = hits.map((h: { content: string }) => h.content);
   const refClaims = splitSentences(c.groundTruth);
 
   // Embeddingek egyben: kérdés + chunkok (a megjelenített sim-hez).
@@ -278,7 +287,7 @@ async function evalCase(c: EvalCase): Promise<CaseResult> {
       noiseSensitivity(c.question, contexts),
     ]);
 
-  const chunks: ChunkEval[] = hits.map((h, i) => ({
+  const chunks: ChunkEval[] = hits.map((h: { title: string; distance: number; content: string }, i: number) => ({
     title: h.title,
     distance: h.distance,
     sim: cosineSim(qEmb!, chunkEmbs[i]!),

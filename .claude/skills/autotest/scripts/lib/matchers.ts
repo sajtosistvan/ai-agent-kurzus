@@ -36,3 +36,21 @@ export function leakHit(text: string, flag: string): boolean {
 export function isFailureFlag(flag: string): boolean {
   return flag.startsWith('HIBA') || flag.startsWith('SZIVÁRGÁS') || flag.startsWith('ÜRES') || flag.startsWith('INFRA');
 }
+
+/**
+ * A válaszban EMLÍTETT katalógus-nevek — leghosszabb-egyezés előnyben, „fogyasztással". Így a
+ * „Kínai pénzfa" nem számít egyszerre „Pénzfa"-ként is (részszó → hamis pozitív a precision-ben),
+ * ugyanakkor a magyar toldalékos alak („Bazsalikomot") is illeszkedik (substring, nem szó-határ).
+ */
+export function mentionedNames(answer: string, names: string[]): string[] {
+  let hay = answer.toLowerCase();
+  const found: string[] = [];
+  for (const name of [...names].sort((a, b) => b.length - a.length)) {
+    const n = name.toLowerCase();
+    if (n && hay.includes(n)) {
+      found.push(name);
+      hay = hay.split(n).join(' '); // a hosszabb találatot „elfogyasztjuk", hogy a rövidebb rész ne fogja meg
+    }
+  }
+  return found;
+}
