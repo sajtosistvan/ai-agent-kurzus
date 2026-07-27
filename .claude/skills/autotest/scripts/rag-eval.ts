@@ -1,6 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { embedBatch, loadConfig, retrieveKnowledge } from '@plantbase/core';
@@ -30,7 +29,7 @@ interface EvalCase {
 // A korpusz gondozási cikkek (ask-the-sill, plants-101). A kérdések ezt célozzák.
 // A RAG-esetek KÜLÖN JSON-ban élnek (jól bemutatható): rag-cases.json.
 const CASES: EvalCase[] = (
-  JSON.parse(readFileSync(fileURLToPath(new URL('../rag-cases.json', import.meta.url)), 'utf8')) as { cases: EvalCase[] }
+  JSON.parse(readFileSync('.claude/skills/autotest/rag-cases.json', 'utf8')) as { cases: EvalCase[] }
 ).cases;
 
 const cfg = loadConfig();
@@ -84,10 +83,14 @@ function parseJsonLoose(text: string): unknown {
   } catch {
     /* tovább a kivágásra */
   }
-  for (const [open, close] of [
-    ['[', ']'],
-    ['{', '}'],
-  ] as const) {
+  // A LEGELÖL szereplő nyitó zárójelből indulunk — különben egy {"questions":[...]} alakból a
+  // belső tömböt vágnánk ki, és pl. az answerRelevancy csendben 0-t adna (N1 finding).
+  const brackets = ([['[', ']'], ['{', '}']] as const).slice().sort((a, b) => {
+    const ia = cleaned.indexOf(a[0]);
+    const ib = cleaned.indexOf(b[0]);
+    return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
+  });
+  for (const [open, close] of brackets) {
     const start = cleaned.indexOf(open);
     if (start < 0) continue;
     let depth = 0;

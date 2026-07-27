@@ -102,7 +102,7 @@ The **product's** prompts to the LLM (`prompts.ts`, `ingest-prompts.ts`) are XML
 
 The project keeps a **decision log** in `docs/adr/`: one file per decision recording *why*, the alternatives considered, and the consequences. The code shows *what* we do; ADRs preserve *why*.
 
-**When to write an ADR** (this is a rule, not a suggestion): whenever a decision is architecturally significant or hard to reverse — a structural/technology choice, a project-wide convention, or the disposition of a **autotest** (which suggestions we adopt vs. reject, and why). Skip ADRs for trivial, easily-reversible changes. Rule of thumb: if someone would ask „why this way?" in six months, write one.
+**When to write an ADR** (this is a rule, not a suggestion): whenever a decision is architecturally significant or hard to reverse — a structural/technology choice, a project-wide convention, or the disposition of an **autotest review** (which suggestions we adopt vs. reject, and why). Skip ADRs for trivial, easily-reversible changes. Rule of thumb: if someone would ask „why this way?" in six months, write one.
 
 Mechanics: copy `docs/adr/_template.md` → `docs/adr/NNNN-short-title.md` (four-digit, monotonically increasing; never reuse a number), fill it in, add a row to the index table in `docs/adr/README.md`. Accepted ADRs are never rewritten — supersede with a new one and set the old status to „Felváltva: ADR-NNNN". Full convention: `docs/adr/README.md`.
 

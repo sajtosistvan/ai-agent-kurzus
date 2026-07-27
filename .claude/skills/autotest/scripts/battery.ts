@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { chromium, type Page } from 'playwright';
 
@@ -161,8 +160,13 @@ async function queryNameSet(sql: string): Promise<string[] | null> {
 }
 let allCatalogNames: string[] | null = null;
 async function getAllCatalogNames(): Promise<string[]> {
-  if (!allCatalogNames) allCatalogNames = (await queryNameSet('SELECT name FROM products')) ?? [];
-  return allCatalogNames;
+  // CSAK sikeres eredményt cache-elünk — különben egy tranziens DB-hiba az üres tömböt az egész
+  // futásra bekonzerválná (a `[]` truthy), és minden sqlCheck 0 talált névvel dolgozna.
+  if (allCatalogNames === null) {
+    const result = await queryNameSet('SELECT name FROM products');
+    if (result) allCatalogNames = result;
+  }
+  return allCatalogNames ?? [];
 }
 
 /**
@@ -225,7 +229,7 @@ interface Tier {
 
 // A tesztesetek KÜLÖN JSON-ban élnek (jól bemutatható, kódtól független): battery-cases.json.
 const TIERS: Tier[] = (
-  JSON.parse(readFileSync(fileURLToPath(new URL('../battery-cases.json', import.meta.url)), 'utf8')) as { tiers: Tier[] }
+  JSON.parse(readFileSync('.claude/skills/autotest/battery-cases.json', 'utf8')) as { tiers: Tier[] }
 ).tiers;
 
 /** A harness saját ítélete: elfogadja-e a választ, és MIÉRT — emberi mondatban. */
@@ -252,14 +256,43 @@ interface Result {
 }
 
 /** Determinisztikus korrektség-ellenőrzés — a bukás flag-ként kerül a válaszra. */
+/**
+ * Token-illesztés: SZÁMNÁL pontos szám-egyezés (a „15" NE illeszkedjen a „15 900"-ra, a „60" az
+ * „1 160 Ft"-ra). Magyar ezres-elválasztó a szóköz és a pont; a tizedes vessző elválaszt.
+ * Nem-számnál sima (kisbetűs) substring.
+ */
+function containsToken(answer: string, token: string): boolean {
+  const t = token.trim();
+  if (/^\d[\d\s.]*\d$|^\d$/.test(t)) {
+    const target = t.replace(/[\s.]/g, '');
+    const nums = answer.match(/\d[\d\s.]*\d|\d/g) ?? [];
+    return nums.some((n) => n.replace(/[\s.]/g, '') === target);
+  }
+  return answer.toLowerCase().includes(t.toLowerCase());
+}
+
+/**
+ * Szivárgás/engedés-illesztés TAGADÁS-tudatosan: ha a találatot közvetlenül (kb. egy tagmondaton
+ * belül) tagadószó előzi meg („nem törölve", „nem módosítottam"), az NEM szivárgás — a helyes
+ * elutasítás gyakran idézi a tiltott műveletet. Csak a nem-tagadott előfordulás számít jelnek.
+ */
+function leakHit(text: string, flag: string): boolean {
+  const lower = text.toLowerCase();
+  const f = flag.toLowerCase();
+  for (let i = lower.indexOf(f); i >= 0; i = lower.indexOf(f, i + f.length)) {
+    const before = lower.slice(Math.max(0, i - 30), i);
+    if (!/\b(nem|sem|nincs|tilos)\b[^.!?]*$/.test(before)) return true;
+  }
+  return false;
+}
+
 function checkExpect(answer: string, expect: Expect): string[] {
   const flags: string[] = [];
-  const lower = answer.toLowerCase();
-  if (expect.includesAny && !expect.includesAny.some((s) => lower.includes(s.toLowerCase()))) {
+  if (expect.includesAny && !expect.includesAny.some((s) => containsToken(answer, s))) {
     flags.push(`HIBA: egyik elvárt sem szerepel (${expect.includesAny.join(' / ')})`);
   }
   for (const forbidden of expect.excludesAll ?? []) {
-    if (lower.includes(forbidden.toLowerCase())) {
+    if (containsToken(answer, forbidden)) {
       flags.push(`HIBA: tiltott szerepel ("${forbidden}")`);
     }
   }
@@ -332,7 +365,7 @@ async function askOne(page: Page, question: Question): Promise<Result> {
 
   if (answer.length === 0) flags.push('ÜRES VÁLASZ');
   for (const flag of question.redFlags ?? []) {
-    if (answer.toLowerCase().includes(flag.toLowerCase())) flags.push(`SZIVÁRGÁS?: "${flag}"`);
+    if (leakHit(answer, flag)) flags.push(`SZIVÁRGÁS?: "${flag}"`);
   }
   if (question.expect) flags.push(...checkExpect(answer, question.expect));
 
@@ -340,8 +373,15 @@ async function askOne(page: Page, question: Question): Promise<Result> {
   let sqlTruth: string | undefined;
   let sqlVerdict: string | undefined;
   if (question.sqlCheck) {
-    const expected = (await queryNameSet(question.sqlCheck.sql)) ?? [];
+    const expected = await queryNameSet(question.sqlCheck.sql);
     const allNames = await getAllCatalogNames();
+    if (expected === null || allNames.length === 0) {
+      // Infra-hiba (nem futó/elérhetetlen plantbase-pg) — NEM agent-hiba: kihagyjuk flag nélkül.
+      sqlTruth = 'SQL execution accuracy kihagyva — a plantbase-pg konténer nem elérhető (indítsd: docker compose up -d).';
+      sqlVerdict = `KIHAGYVA — ${sqlTruth}`;
+      const verdictSkip = { accepted: flags.length === 0, reason: flags.length ? `ELUTASÍTVA — ${flags.join('; ')}.` : sqlVerdict };
+      return { tier: '', id: question.id, q: question.q, ms, ttfcMs, tokens, answer, flags, truth: sqlTruth, verdict: verdictSkip };
+    }
     const mentioned = allNames.filter((n) => answer.includes(n));
     const tp = expected.filter((n) => mentioned.includes(n));
     const precision = mentioned.length ? tp.length / mentioned.length : 0;
@@ -413,7 +453,7 @@ async function askConversation(page: Page, c: ConversationCase): Promise<Result>
 
   if (turns.some((t) => t.assistant.length === 0)) flags.push('ÜRES VÁLASZ');
   for (const flag of c.redFlags ?? []) {
-    if (assistantText.toLowerCase().includes(flag.toLowerCase())) flags.push(`SZIVÁRGÁS?: "${flag}"`);
+    if (leakHit(assistantText, flag)) flags.push(`SZIVÁRGÁS?: "${flag}"`);
   }
   if (c.expect) {
     const expectFlags = checkExpect(lastAnswer, c.expect);
@@ -432,7 +472,9 @@ async function askConversation(page: Page, c: ConversationCase): Promise<Result>
         flags.push(`HIBA: nem jött létre új csomag a DB-ben (${pkgBefore} → ${pkgAfter}) — a mentés nem történt meg`);
       }
     } else {
-      okNotes.push('DB-ellenőrzés kihagyva (nincs DATABASE_URL)');
+      // Nem tudtuk ellenőrizni a mentést (plantbase-pg nem elérhető) — NEM szabad csendben
+      // ELFOGADNI (false green): a mentés a flow legfontosabb determinisztikus ellenőrzése.
+      flags.push('INFRA HIBA: a csomag-mentés nem ellenőrizhető — a plantbase-pg konténer nem elérhető (indítsd: docker compose up -d)');
     }
   }
 
@@ -544,11 +586,18 @@ async function main(): Promise<void> {
     }
   }
 
+  // Üres találat (pl. --only nem illeszkedett): álljunk meg, ne NaN-oljon a riport.
+  if (results.length === 0) {
+    console.log('\nNincs futtatható eset (a --only szűrő nem talált tiert). Kilépés riport nélkül.');
+    await browser.close();
+    return;
+  }
+
   // ── Consistency: pár determinisztikus kérdést N-szer újrakérdezünk, és mérjük, hányszor
   // egyezik a verdict (LLM-flakiness számszerűsítése — a trap-3rd élesben ingadozott). ──
-  const CONSISTENCY_IDS = ['trap-3rd-expensive', 'trap-avg-price', 'sql-under3000'];
+  const CONSISTENCY_IDS = ['trap-most-expensive', 'trap-avg-price', 'sql-under3000'];
   const CONSISTENCY_RUNS = 3;
-  const allQuestions = TIERS.flatMap((t) => t.questions ?? []);
+  const allQuestions = tiersToRun.flatMap((t) => t.questions ?? []);
   const consistency: {
     id: string;
     question: string;
@@ -581,7 +630,7 @@ async function main(): Promise<void> {
 
   // Beszélgetés-consistency: a flaky csomag-mentést kvantifikáljuk — N-szer végigvisszük a
   // package-flow-t, és megnézzük, hányszor jött létre TÉNYLEGESEN mentés (DB-ellenőrzés).
-  const allConversations = TIERS.flatMap((t) => t.conversations ?? []);
+  const allConversations = tiersToRun.flatMap((t) => t.conversations ?? []);
   const pkgFlow = allConversations.find((c) => c.id === 'mt-package-happy');
   if (pkgFlow && !SKIP_CONSISTENCY) {
     console.log(`\n=== Consistency (csomag-flow) — ${CONSISTENCY_RUNS} teljes futás ===`);
@@ -635,7 +684,7 @@ async function main(): Promise<void> {
           totalTokens,
           avgTokens: withTokens.length ? Math.round(totalTokens / withTokens.length) : 0,
         },
-        tiers: TIERS.map((tier) => ({
+        tiers: tiersToRun.map((tier) => ({
           name: tier.name,
           intent: tier.intent,
           results: results.filter((r) => r.tier === tier.name),

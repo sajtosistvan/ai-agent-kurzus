@@ -112,10 +112,12 @@ pnpm tsx .claude/skills/autotest/scripts/rag-report-html.ts \
   logs/flow-test/<ts>-rag-eval.json logs/flow-test/<ts>-rag-report.html
 ```
 
-Négy metrika (0–1), állítás-szintű indoklással: **faithfulness** (nem hallucinál — LLM-judge),
-**answer relevancy** (a kérdésre felel — embedding), **context precision** (a top-K releváns —
-LLM-judge), **context recall** (a kellő tények bekerültek — LLM-judge kurált referencia-válaszhoz).
-A `rag-report-html.ts` is auto-open (`--no-open` a CI-hez). A dataset a `rag-eval.ts` tetején (`CASES`).
+Hat metrika (0–1), állítás-szintű indoklással: **faithfulness** (nem hallucinál — LLM-judge),
+**answer relevancy** (a kérdésre felel — embedding), **answer correctness** (referencia-egyezés —
+embedding), **context precision** (a top-K releváns — LLM-judge), **context recall** (a kellő
+tények bekerültek — LLM-judge kurált referencia-válaszhoz), **noise sensitivity** (zajra hallucinál-e
+— kevesebb a jobb). A `rag-report-html.ts` is auto-open (`--no-open` a CI-hez). A dataset a
+`rag-cases.json`-ban van (kódtól független).
 
 ## Tesztesetek — KÜLÖN JSON-ban (jól bemutatható, kódtól független)
 A kérdések/szcenáriók NEM a kódban vannak, hanem szerkeszthető, demózható JSON-ban:
