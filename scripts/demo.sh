@@ -20,28 +20,43 @@ cd "$(dirname "$0")/.."
 
 SCHEMA="packages/db/prisma/schema.prisma"
 
-echo "→ 1/7 Portok felszabadítása (3001, 4200)…"
+echo "→ 1/8 Portok felszabadítása (3001, 4200)…"
 lsof -ti :3001 -ti :4200 | xargs kill 2>/dev/null || true
 
-echo "→ 2/7 Cache tisztítása (nx reset + dist mappák)…"
+echo "→ 2/8 Cache tisztítása (nx reset + dist mappák)…"
 pnpm nx reset
 rm -rf apps/cli/dist apps/server/dist apps/web/dist packages/core/dist node_modules/.vite
 
-echo "→ 3/7 Függőségek telepítése (lockfile branch-váltásnál változhatott)…"
+echo "→ 3/8 Függőségek telepítése (lockfile branch-váltásnál változhatott)…"
 CI=true pnpm install
 
-echo "→ 4/7 Prisma kliens generálása…"
+echo "→ 4/8 Prisma kliens generálása…"
 pnpm prisma generate --schema="$SCHEMA"
 
-echo "→ 5/7 Adatbázis: konténer indítása, migráció, seed…"
+echo "→ 5/8 Adatbázis: konténer indítása, migráció, seed…"
 docker compose up -d 2>/dev/null || echo "→ DB már fut"
 pnpm prisma migrate deploy --schema="$SCHEMA"
 pnpm db:seed
 
-echo "→ 6/7 Friss build…"
+# A vektor DB (knowledge_chunks) NEM a seed része: az embeddingek OpenAI-hívásból
+# születnek (pénz + idő + kulcs), ezért nem akarjuk minden demónál újraépíteni.
+# A perzisztens Postgres-volume miatt a chunkok túlélik a demót — csak akkor kell
+# ingestelni, ha a tábla ÜRES (friss volume, db:reset, új gép). Ezt itt ellenőrizzük.
+echo "→ 6/8 Tudásbázis (vektor DB): feltöltés, ha üres…"
+KNOWLEDGE_COUNT=$(docker compose exec -T postgres \
+  psql -U plantbase -d plantbase -tAc \
+  'SELECT count(*) FROM knowledge_chunks' 2>/dev/null | tr -d '[:space:]' || echo 0)
+if [ "${KNOWLEDGE_COUNT:-0}" -gt 0 ]; then
+  echo "→ Tudásbázis már feltöltve ($KNOWLEDGE_COUNT chunk) — kihagyás."
+else
+  echo "→ Üres tudásbázis — ingest indul (OpenAI-embedding, ez eltarthat egy percig)…"
+  pnpm knowledge:ingest
+fi
+
+echo "→ 7/8 Friss build…"
 pnpm build
 
-echo "→ 7/7 szerver (3001) + web (4200) indul — Ctrl+C mindkettőt leállítja"
+echo "→ 8/8 szerver (3001) + web (4200) indul — Ctrl+C mindkettőt leállítja"
 echo "   web: http://localhost:4200 (a web log fájlba megy: logs/web.log)"
 echo "   a terminálban CSAK a szerver agent-trace-e látszik — másik terminálban: tail -f logs/agent.log"
 trap 'kill 0' EXIT INT TERM
