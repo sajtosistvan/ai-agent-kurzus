@@ -1,7 +1,6 @@
-import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { platform } from 'node:process';
+import { esc, md, openInBrowser } from './lib/html.js';
 
 // rag-report-html.ts — a rag-eval.json-ból ÖNÁLLÓ, self-contained „fancy" HTML-riport. Ez a
 // KÜLÖN riport-verzió a RAG-metrikákkal (a battery-riporttól elkülönítve). RAGAS-stílus:
@@ -55,67 +54,8 @@ interface RagData {
   results: CaseResult[];
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
-/** Inline markdown: **félkövér**, *dőlt*, `kód` — a szöveg már escape-elt. */
-function mdInline(s: string): string {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>');
-}
 
-/** Mini markdown → HTML: címsorok, listák, félkövér. Self-contained (nincs külső lib). */
-function md(src: string): string {
-  const lines = esc(src).split('\n');
-  let html = '';
-  let inUl = false;
-  let inOl = false;
-  const close = (): void => {
-    if (inUl) {
-      html += '</ul>';
-      inUl = false;
-    }
-    if (inOl) {
-      html += '</ol>';
-      inOl = false;
-    }
-  };
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t) {
-      close();
-      continue;
-    }
-    let m: RegExpMatchArray | null;
-    if ((m = t.match(/^(#{1,4})\s+(.*)/))) {
-      close();
-      const lvl = Math.min(6, m[1]!.length + 2);
-      html += `<h${lvl}>${mdInline(m[2]!)}</h${lvl}>`;
-    } else if ((m = t.match(/^[-*]\s+(.*)/))) {
-      if (inOl) close();
-      if (!inUl) {
-        html += '<ul>';
-        inUl = true;
-      }
-      html += `<li>${mdInline(m[1]!)}</li>`;
-    } else if ((m = t.match(/^\d+\.\s+(.*)/))) {
-      if (inUl) close();
-      if (!inOl) {
-        html += '<ol>';
-        inOl = true;
-      }
-      html += `<li>${mdInline(m[1]!)}</li>`;
-    } else {
-      close();
-      html += `<p>${mdInline(t)}</p>`;
-    }
-  }
-  close();
-  return html || '<em>üres</em>';
-}
 function pct(v: number): number {
   return Math.round(v * 100);
 }
@@ -404,15 +344,6 @@ function render(data: RagData): string {
 </html>`;
 }
 
-function openInBrowser(path: string): void {
-  const opener = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-  try {
-    const child = spawn(opener, [path], { detached: true, stdio: 'ignore', shell: platform === 'win32' });
-    child.unref();
-  } catch {
-    /* headless/CI: nem kritikus */
-  }
-}
 
 function main(): void {
   const argv = process.argv.slice(2);

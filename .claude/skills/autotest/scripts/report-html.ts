@@ -1,7 +1,7 @@
-import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { platform } from 'node:process';
+import { chatThread, esc, openInBrowser } from './lib/html.js';
+import { isFailureFlag } from './lib/matchers.js';
 
 // report-html.ts — a battery-eredményből (+ opcionális javaslatokból) ÖNÁLLÓ, self-contained
 // „fancy" HTML-riportot rendel. Determinisztikus: a tartalmat az agent adja (JSON), a forma itt
@@ -66,18 +66,7 @@ interface Suggestion {
   evidenceRefs?: string[];
 }
 
-/** Egy flag tényleges hiba (korrektség/szivárgás), nem csak megjegyzés? */
-function isFailureFlag(flag: string): boolean {
-  return flag.startsWith('HIBA') || flag.startsWith('SZIVÁRGÁS') || flag.startsWith('ÜRES');
-}
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 const SEV_ORDER: Record<Severity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
@@ -107,98 +96,6 @@ function clip(text: string, n: number): string {
   return clean.length > n ? `${clean.slice(0, n)}…` : clean;
 }
 
-/** Inline markdown: **félkövér**, *dőlt*, `kód` — a szöveg már escape-elt. */
-function mdInline(s: string): string {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>');
-}
-
-/** Mini markdown → HTML: címsorok, listák, TÁBLÁZAT, félkövér — hogy az asszisztens üzenete úgy
- *  nézzen ki, mint az élő chatben. Self-contained (nincs külső lib). */
-function splitRow(line: string): string[] {
-  return line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
-}
-function md(src: string): string {
-  const lines = esc(src).split('\n');
-  let html = '';
-  let inUl = false;
-  let inOl = false;
-  const close = (): void => {
-    if (inUl) { html += '</ul>'; inUl = false; }
-    if (inOl) { html += '</ol>'; inOl = false; }
-  };
-  const isRow = (l: string): boolean => l.includes('|');
-  const isSep = (l: string): boolean => /^\s*\|?[\s:|-]+\|?\s*$/.test(l) && l.includes('-');
-  let i = 0;
-  while (i < lines.length) {
-    const t = lines[i]!.trim();
-    if (!t) { close(); i++; continue; }
-    // Táblázat: aktuális sor tartalmaz |-t, a következő elválasztó (---|---).
-    if (isRow(lines[i]!) && i + 1 < lines.length && isSep(lines[i + 1]!)) {
-      close();
-      const header = splitRow(lines[i]!);
-      i += 2;
-      const body: string[][] = [];
-      while (i < lines.length && lines[i]!.trim() && isRow(lines[i]!)) {
-        body.push(splitRow(lines[i]!));
-        i++;
-      }
-      html +=
-        '<div class="tbl-wrap"><table><thead><tr>' +
-        header.map((h) => `<th>${mdInline(h)}</th>`).join('') +
-        '</tr></thead><tbody>' +
-        body.map((r) => '<tr>' + r.map((c) => `<td>${mdInline(c)}</td>`).join('') + '</tr>').join('') +
-        '</tbody></table></div>';
-      continue;
-    }
-    let m: RegExpMatchArray | null;
-    if ((m = t.match(/^(#{1,4})\s+(.*)/))) {
-      close();
-      const lvl = Math.min(6, m[1]!.length + 2);
-      html += `<h${lvl}>${mdInline(m[2]!)}</h${lvl}>`;
-    } else if ((m = t.match(/^[-*]\s+(.*)/))) {
-      if (inOl) close();
-      if (!inUl) { html += '<ul>'; inUl = true; }
-      html += `<li>${mdInline(m[1]!)}</li>`;
-    } else if ((m = t.match(/^\d+\.\s+(.*)/))) {
-      if (inUl) close();
-      if (!inOl) { html += '<ol>'; inOl = true; }
-      html += `<li>${mdInline(m[1]!)}</li>`;
-    } else {
-      close();
-      html += `<p>${mdInline(t)}</p>`;
-    }
-    i++;
-  }
-  close();
-  return html || '<em>üres</em>';
-}
-
-/**
- * A teljes beszélgetés chat-nézetben (user + asszisztens buborékok). Egy-körös kérdésnél a kérdés
- * a user-üzenet, a válasz az asszisztensé; több-körösnél a 👤/🤖 átiratot körökre bontjuk.
- */
-function chatThread(question: string, answer: string): string {
-  const turns: { user: string; bot: string }[] = [];
-  if (answer.includes('👤')) {
-    for (const chunk of answer.split('👤 ').map((s) => s.trim()).filter(Boolean)) {
-      const [user, ...botParts] = chunk.split('🤖');
-      turns.push({ user: (user ?? '').trim(), bot: botParts.join('🤖').trim() });
-    }
-  } else {
-    turns.push({ user: question, bot: answer });
-  }
-  const bubbles = turns
-    .map(
-      (t) =>
-        `${t.user ? `<div class="msg user">${esc(t.user)}</div>` : ''}` +
-        `<div class="msg bot"><div class="rendered">${md(t.bot)}</div></div>`,
-    )
-    .join('');
-  return `<div class="chat">${bubbles}</div>`;
-}
 
 function suggestionsSection(suggestions: Suggestion[], byId: Map<string, QResult>): string {
   if (suggestions.length === 0) {
@@ -460,21 +357,6 @@ function readJson<T>(path: string, label: string): T {
   }
 }
 
-/** A riport megnyitása az OS alapértelmezett böngészőjében (fire-and-forget). */
-function openInBrowser(path: string): void {
-  const opener =
-    platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-  try {
-    const child = spawn(opener, [path], {
-      detached: true,
-      stdio: 'ignore',
-      shell: platform === 'win32', // a `start` a cmd beépített parancsa
-    });
-    child.unref();
-  } catch {
-    // Nem kritikus: ha nincs GUI/opener (CI, headless), csak nem nyílik meg.
-  }
-}
 
 function main(): void {
   const argv = process.argv.slice(2);

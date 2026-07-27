@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { embedBatch, loadConfig, retrieveKnowledge } from '@plantbase/core';
+import { coerceArray, parseJsonLoose } from './lib/json-loose.js';
 
 // rag-eval.ts — RAGAS-stílusú RAG-kiértékelés, in-repo, TS-ben, LÁTHATÓ számítással.
 // Nem a böngésző-battery: ez közvetlenül a pipeline-t hajtja, mert a metrikákhoz látni kell a
@@ -71,55 +72,6 @@ async function genText(prompt: string): Promise<string> {
   return text;
 }
 
-/**
- * Laza JSON-parse: a modell néha prózát ír a JSON elé, ```json fence-be teszi, vagy szöveget fűz
- * utána. Kiegyensúlyozott, string-tudatos zárójel-illesztéssel vágjuk ki az első teljes [..]/{..}
- * blokkot — a korábbi naiv regex okozta a hamis 0.00 faithfulness / 1.00 noise értékeket.
- */
-function parseJsonLoose(text: string): unknown {
-  const cleaned = text.replace(/```json\s*|```/g, '').trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    /* tovább a kivágásra */
-  }
-  // A LEGELÖL szereplő nyitó zárójelből indulunk — különben egy {"questions":[...]} alakból a
-  // belső tömböt vágnánk ki, és pl. az answerRelevancy csendben 0-t adna (N1 finding).
-  const brackets = ([['[', ']'], ['{', '}']] as const).slice().sort((a, b) => {
-    const ia = cleaned.indexOf(a[0]);
-    const ib = cleaned.indexOf(b[0]);
-    return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
-  });
-  for (const [open, close] of brackets) {
-    const start = cleaned.indexOf(open);
-    if (start < 0) continue;
-    let depth = 0;
-    let inStr = false;
-    let escaped = false;
-    for (let i = start; i < cleaned.length; i++) {
-      const ch = cleaned[i]!;
-      if (inStr) {
-        if (escaped) escaped = false;
-        else if (ch === '\\') escaped = true;
-        else if (ch === '"') inStr = false;
-        continue;
-      }
-      if (ch === '"') inStr = true;
-      else if (ch === open) depth++;
-      else if (ch === close) {
-        depth--;
-        if (depth === 0) {
-          try {
-            return JSON.parse(cleaned.slice(start, i + 1));
-          } catch {
-            break;
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
 
 /** LLM-hívás, ami szigorú JSON-t vár — zod nélkül, robusztus parse-szal. */
 async function askJson<T>(prompt: string): Promise<T | null> {
@@ -127,19 +79,6 @@ async function askJson<T>(prompt: string): Promise<T | null> {
   return (parseJsonLoose(text) as T) ?? null;
 }
 
-/**
- * Tömbbé alakítás — a judge néha objektumba csomagolja a tömböt (pl. {"claims":[...]}). Ilyenkor
- * a bare-tömb feltételezés miatt minden állítás „nem támogatott"-ra esne (hamis noise=1.00), ezért
- * kibontjuk az első tömb-értékű mezőt. Ez a fix a fura noise-értékek gyökéroka.
- */
-function coerceArray<T>(x: unknown): T[] {
-  if (Array.isArray(x)) return x as T[];
-  if (x && typeof x === 'object') {
-    const arr = Object.values(x as Record<string, unknown>).find((v) => Array.isArray(v));
-    if (arr) return arr as T[];
-  }
-  return [];
-}
 
 /** A kiértékelendő „rendszer-válasz": kizárólag a visszakapott kontextusból, magyarul. */
 async function answerFromContext(question: string, contexts: string[]): Promise<string> {
