@@ -1,0 +1,39 @@
+{
+  "cases": [
+    {
+      "id": "rag-ferns",
+      "question": "Hogyan gondozzam a szobapáfrányt — fény, öntözés, páratartalom?",
+      "groundTruth": "A páfrányok a közepes, indirekt fényt kedvelik, a közvetlen tűző napot kerülni kell. Egyenletesen nedves talajt igényelnek, nem szeretik, ha kiszárad a föld. Magas páratartalmat kívánnak, ezért párásítás vagy párásabb hely ajánlott."
+    },
+    {
+      "id": "rag-lowlight",
+      "question": "Melyik szobanövény bírja jól a kevés fényt?",
+      "groundTruth": "Több szobanövény tolerálja az alacsony fényt, például a zamiokulkász (ZZ növény), a szanszeviéria (anyósnyelv) és a filodendron. Kevés fény mellett is elélnek, de lassabban nőnek."
+    },
+    {
+      "id": "rag-propagation",
+      "question": "Hogyan szaporítsak szobanövényt dugványról?",
+      "groundTruth": "Vágj le egy egészséges hajtást közvetlenül egy nódusz (levélcsomó) alatt, távolítsd el az alsó leveleket, és tedd vízbe vagy nedves közegbe, amíg gyökeret nem ereszt. Világos, indirekt fényen tartsd, és cseréld rendszeresen a vizet."
+    },
+    {
+      "id": "rag-petsafe",
+      "question": "Melyik növény biztonságos háziállatok mellett?",
+      "groundTruth": "Számos növény biztonságos kutya és macska mellett, például az areca pálma, a calathea és a legtöbb valódi páfrány. Ezek nem mérgezőek, ha az állat megrágja."
+    },
+    {
+      "id": "rag-overwater",
+      "question": "Mit tegyek, ha túlöntöztem a szobanövényt — mik a jelek és a teendő?",
+      "groundTruth": "A túlöntözés jelei: sárguló, puha levelek, hervadás nedves föld mellett, penész a talaj tetején, esetleg rothadó gyökér és kellemetlen szag. Teendő: hagyd kiszáradni a földet, ne öntözz, súlyos esetben ültesd át friss, jól vízáteresztő földbe és vágd le a rothadt gyökereket."
+    },
+    {
+      "id": "rag-repotting",
+      "question": "Mikor és hogyan ültessem át a szobanövényt?",
+      "groundTruth": "Akkor ültess át, ha a gyökér kinőtte a cserepet (a vízelvezető lyukon kilóg) vagy a növés lelassul; a legjobb időszak a tavasz. Válassz egy mérettel nagyobb cserepet, óvatosan lazítsd meg a gyökereket, friss földbe tedd, és alaposan öntözd be."
+    },
+    {
+      "id": "rag-toxic-oleander",
+      "question": "Mérgező-e a leander (Nerium oleander) a macskákra, és milyen tünetei vannak?",
+      "groundTruth": "A leander erősen mérgező macskákra: szívglikozidokat tartalmaz, amelyek szívritmuszavart, hányást, hasmenést, levertséget okozhatnak, súlyos esetben halálos is lehet. Gyanú esetén azonnal állatorvoshoz kell fordulni."
+    }
+  ]
+}

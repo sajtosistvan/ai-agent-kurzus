@@ -1,0 +1,604 @@
+<!--
+  8. óra — A szabálytól a routingig: interaktív, önhordó vizualizáció (4 nézet, lépésenkénti lejátszással).
+  Megnyitás: open szabaly-llm-routing.html  (file://-ról is működik, nincs külső függőség a fontokon kívül).
+  Órai használat: vetítsd ki 16:9-ben, válts a négy nézet között (1/2/3/4), és a lépéslistával / ←→ billentyűkkel
+  vagy a Lejátszás gombbal mutasd be, hogyan bővül a szabály-alapú bot LLM fallbackkel, routinggal, majd
+  multiturn + specialista agentekkel. Ugyanaz az engine, mint a 3. órás agent-topologiak.html.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. óra · A szabálytól a routingig</title>
+<style>
+  :root{
+    --bg:#141414; --panel:#1c1c1c; --panel2:#181818; --line:#2a2a2a; --ink:#ececec; --ink-dim:#9a9a9a;
+    --user:#5ba8f5; --rule:#9ece9e; --llm:#b394f7; --tool:#e0b062; --red:#e2726e;
+    --edge:#3f3f3f; --active:#8fc7ff; --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+    --disp:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 75% -10%, rgba(91,168,245,.06), transparent 60%),
+      radial-gradient(900px 600px at -5% 110%, rgba(179,148,247,.05), transparent 55%),
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(236,236,236,.02) 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, rgba(236,236,236,.02) 39px 40px),
+      var(--bg);
+    color:var(--ink); font-family:var(--mono); font-size:14px;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    display:flex; align-items:center; gap:28px; padding:14px 26px 12px;
+    border-bottom:1px solid var(--line); flex-wrap:wrap;
+  }
+  h1{font-family:var(--disp); font-weight:700; font-size:22px; letter-spacing:.2px}
+  h1 .acc{color:var(--user)}
+  nav{display:flex; gap:6px; margin-left:auto}
+  nav button{
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-dim); background:transparent;
+    border:1px solid var(--line); padding:8px 14px; border-radius:6px; cursor:pointer;
+    transition:all .18s ease; text-align:left; line-height:1.35;
+  }
+  nav button b{display:block; color:var(--ink); font-weight:600}
+  nav button:hover{border-color:var(--rule)}
+  nav button:nth-child(1).sel{background:rgba(158,206,158,.1); border-color:var(--rule)}
+  nav button:nth-child(1).sel b{color:var(--rule)}
+  nav button:nth-child(2).sel{background:rgba(179,148,247,.12); border-color:var(--llm)}
+  nav button:nth-child(2).sel b{color:var(--llm)}
+  nav button:nth-child(3).sel{background:rgba(91,168,245,.12); border-color:var(--user)}
+  nav button:nth-child(3).sel b{color:var(--user)}
+  nav button:nth-child(4).sel{background:rgba(224,176,98,.12); border-color:var(--tool)}
+  nav button:nth-child(4).sel b{color:var(--tool)}
+  main{flex:1; display:grid; grid-template-columns:1fr 360px; gap:0; min-height:0}
+  #stage{position:relative; min-width:0; padding:8px 4px 4px 12px; display:flex; flex-direction:column}
+  #stage svg{flex:1; width:100%; height:100%; display:none}
+  #stage svg.vis{display:block}
+  aside{
+    border-left:1px solid var(--line); display:flex; flex-direction:column; min-height:0;
+    background:linear-gradient(180deg, rgba(28,28,28,.6), rgba(24,24,24,.9));
+  }
+  #info{padding:16px 18px 12px; border-bottom:1px solid var(--line); min-height:118px}
+  #info .stepno{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim)}
+  #info h2{font-family:var(--disp); font-size:17px; margin:5px 0 7px; font-weight:700}
+  #info p{font-size:12.8px; line-height:1.55; color:#c9c9c9}
+  #steps{flex:1; overflow-y:auto; padding:8px 10px; list-style:none}
+  #steps li{
+    display:flex; gap:10px; align-items:baseline; padding:7px 10px; border-radius:6px;
+    cursor:pointer; color:var(--ink-dim); font-size:12.5px; line-height:1.4; border:1px solid transparent;
+  }
+  #steps li:hover{background:rgba(236,236,236,.04)}
+  #steps li.cur{background:rgba(143,199,255,.08); border-color:rgba(143,199,255,.35); color:var(--ink)}
+  #steps li .n{
+    flex:none; width:20px; height:20px; border:1px solid var(--line); border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink-dim);
+  }
+  #steps li.cur .n{border-color:var(--active); color:var(--active)}
+  #steps li.done .n{border-color:var(--rule); color:var(--rule)}
+  #controls{display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--line)}
+  #controls button{
+    font-family:var(--mono); flex:1; padding:9px 0; font-size:13px; border-radius:6px; cursor:pointer;
+    background:var(--panel); color:var(--ink); border:1px solid var(--line); transition:all .15s;
+  }
+  #controls button:hover{border-color:var(--rule)}
+  #controls #play{flex:1.6; background:rgba(91,168,245,.12); border-color:var(--user); color:var(--user)}
+  #controls #play.playing{background:rgba(224,176,98,.12); border-color:var(--tool); color:var(--tool)}
+  footer{
+    display:flex; gap:20px; align-items:center; padding:8px 26px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--ink-dim); flex-wrap:wrap;
+  }
+  footer .lg{display:inline-flex; align-items:center; gap:7px}
+  footer .sw{width:12px; height:12px; border-radius:3px; display:inline-block}
+  footer .sw.chip{border-radius:8px; height:10px; width:18px}
+  footer kbd{border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:10.5px; color:var(--ink)}
+
+  /* ---- SVG elemek ---- */
+  svg text{font-family:var(--mono); fill:var(--ink); user-select:none}
+  .k{transition:opacity .35s ease}
+  svg.stepped .k{opacity:.16}
+  svg.stepped .k.on{opacity:1}
+  .box{fill:var(--panel); stroke-width:1.6}
+  .box.bubble{fill:var(--panel2); stroke-dasharray:6 5; stroke-width:1.3}
+  .btxt{font-size:11.5px; font-style:italic}
+  .k.on .box{stroke-width:2.4; animation:pulse 1.5s ease-in-out infinite}
+  .k.on{filter:drop-shadow(0 0 10px rgba(143,199,255,.25))}
+  @keyframes pulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.4}}
+  .k.faded:not(.on) .box{stroke-opacity:.45}
+  .k.faded:not(.on) .ntitle{opacity:.6}
+  .cont{fill:rgba(240,111,168,.03); stroke:#f06fa8; stroke-dasharray:7 6; stroke-width:1.2}
+  .contlab{font-size:11px; fill:var(--ink-dim); letter-spacing:.8px}
+  .ntitle{font-size:17px; font-weight:600; font-family:var(--disp)}
+  .nsub{font-size:11px; fill:var(--ink-dim)}
+  .chipbox{stroke-width:1.3}
+  .chip.tool .chipbox{fill:rgba(224,176,98,.1); stroke:var(--tool)}
+  .chip.tool text{fill:#f0c179}
+  .chip.dead .chipbox{fill:rgba(226,114,110,.1); stroke:var(--red)}
+  .chip.dead text{fill:#f0a09d}
+  .chip.algo .chipbox{fill:rgba(158,206,158,.1); stroke:var(--rule)}
+  .chip.algo text{fill:#b7dcb7}
+  .chip text{font-size:12.5px}
+  .edge path{fill:none; stroke:var(--edge); stroke-width:2; marker-end:url(#arr)}
+  .edge.on path{stroke:var(--active); stroke-width:3; marker-end:url(#arrOn); stroke-dasharray:9 7; animation:flow .8s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-16}}
+  .elab{font-size:11.5px; fill:var(--ink-dim); paint-order:stroke; stroke:var(--bg); stroke-width:5px; text-anchor:middle}
+  .edge.on .elab{fill:var(--active)}
+  .annot{font-size:11.5px; fill:var(--ink-dim); font-style:italic}
+</style>
+
+<header>
+  <h1>8. óra <span class="acc">·</span> A szabálytól a routingig</h1>
+  <nav id="tabs"></nav>
+</header>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,4 L0,8 z" fill="#4a4a4a"/>
+    </marker>
+    <marker id="arrOn" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,4 L0,8 z" fill="var(--active)"/>
+    </marker>
+  </defs>
+</svg>
+
+<main>
+  <section id="stage"></section>
+  <aside>
+    <div id="info">
+      <div class="stepno" id="stepno"></div>
+      <h2 id="steptitle"></h2>
+      <p id="stepdesc"></p>
+    </div>
+    <ol id="steps"></ol>
+    <div id="controls">
+      <button id="prev" title="Előző lépés (←)">← Előző</button>
+      <button id="play">▶ Lejátszás</button>
+      <button id="next" title="Következő lépés (→)">Következő →</button>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <span class="lg"><span class="sw" style="background:var(--user)"></span> User</span>
+  <span class="lg"><span class="sw" style="background:var(--rule)"></span> Szabály-bot / specialista</span>
+  <span class="lg"><span class="sw" style="background:var(--llm)"></span> LLM</span>
+  <span class="lg"><span class="sw chip" style="border:1.5px solid var(--tool); background:rgba(224,176,98,.15)"></span> Tool / backend</span>
+  <span class="lg"><span class="sw" style="background:var(--red)"></span> Zsákutca / eszkaláció</span>
+  <span style="margin-left:auto">Léptetés: <kbd>←</kbd> <kbd>→</kbd> · Nézetváltás: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></span>
+</footer>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/* Adatmodell — négy nézet                                             */
+/* ------------------------------------------------------------------ */
+
+const COLORS = {
+  user: getCss('--user'), rule: getCss('--rule'),
+  llm:  getCss('--llm'),  tool: getCss('--tool'), red: getCss('--red')
+};
+function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+const VIEWS = [
+{
+  id:'v1',
+  tab:['1 · Szabály-alapú bot','determinisztikus intent-fa'],
+  nodes:[
+    {id:'q1', kind:'q', x:20, y:56,  w:260, h:50, label:'„Szeretném az egyenlegem"'},
+    {id:'q2', kind:'q', x:20, y:118, w:260, h:50, label:'„Meddig vagytok nyitva vasárnap?"'},
+    {id:'q3', kind:'q', x:20, y:180, w:260, h:50, label:'„Miért csökkent a hitelkeretem?"'},
+    {id:'u',  kind:'user', x:40,  y:250, w:150, h:130, label:'User'},
+    {id:'b',  kind:'rule', x:320, y:120, w:360, h:340, label:'Szabály-bot', sub:'kulcsszó + szabály-fa',
+     tools:[{id:'user_needs_balance',label:'user_needs_balance'},
+            {id:'user_needs_card_block',label:'user_needs_card_block'},
+            {id:'user_needs_branch_info',label:'user_needs_branch_info'},
+            {id:'nincs_talalat',label:'nincs találat → ???',cls:'dead'}]},
+    {id:'algo', kind:'algo', x:320, y:470, w:360, h:160, label:'A feloldás algoritmus — nem LLM',
+     sub:'ezért fillérekből és ezredmásodpercek alatt fut',
+     tools:[{id:'nlp',label:'NLP',cls:'algo'},{id:'intentcls',label:'intent-osztályozás',cls:'algo'},
+            {id:'vektor',label:'vektor-kérdésbank',cls:'algo'},{id:'kismodell',label:'kis nyelvi modell',cls:'algo'}]},
+    {id:'api',  kind:'sys',  x:740, y:120, w:470, h:170, label:'Banki backend', sub:'fix akciók, sablonválaszok',
+     tools:[{id:'getBalance',label:'getBalance'},{id:'blockCard',label:'blockCard'},{id:'fixReply',label:'fixReply'}]},
+    {id:'dead', kind:'dead', x:740, y:400, w:470, h:110, label:'„Sajnos ezt nem értem."', sub:'a szabály-fa plafonja'}
+  ],
+  containers:[],
+  annots:[],
+  edges:[
+    {id:'e1',  from:{n:'u',s:'r',dy:-18}, to:{n:'b',s:'l',dy:-40}, label:'kérdés'},
+    {id:'e2',  from:{n:'b',t:'user_needs_balance',s:'r'}, to:{n:'api',s:'l',dy:-15}, label:'determinisztikus hívás'},
+    {id:'e2b', from:{n:'b',t:'user_needs_branch_info',s:'r'}, to:{n:'api',s:'l',dy:30}, label:'fix válasz'},
+    {id:'e3',  from:{n:'api',s:'t'}, to:{n:'u',s:'t'}, label:'sablonválasz'},
+    {id:'e4',  from:{n:'b',t:'nincs_talalat',s:'r'}, to:{n:'dead',s:'l'}, label:'???'}
+  ],
+  steps:[
+    {t:'Egyszerű kérdés érkezik', k:['q1','u','e1','b'],
+     d:'„Szeretném az egyenlegem." Zárt kérdéskör, véges válaszhalmaz — pont az a terep, ahol a szabály-fa otthon van.'},
+    {t:'A feloldás: algoritmus, nem LLM', k:['b','algo','algo.nlp','algo.intentcls','algo.vektor','algo.kismodell'],
+     d:'A kérdés → intent leképezést algoritmus végzi: NLP, intent-osztályozás, vektorizált kérdés-bank, legfeljebb egy kis nyelvi modell. Nincs nagy LLM a körben — fillérekből, ezredmásodpercek alatt fut.'},
+    {t:'Illeszkedés → determinisztikus akció', k:['q1','b.user_needs_balance','e2','api','api.getBalance'],
+     d:'„egyenleg" → user_needs_balance → getBalance. Minden futás ugyanazt csinálja — auditálható, olcsó, gyors.'},
+    {t:'„Meddig vagytok nyitva vasárnap?"', k:['q2','b','b.user_needs_branch_info','e2b','api','api.fixReply'],
+     d:'A leggyakoribb, életszerű kérdések (nyitvatartás, kártyaletiltás, ATM-keresés) pontosan ide valók: fix válasz sablonból, LLM nélkül.'},
+    {t:'Sablonválasz vissza', k:['api','e3','u'],
+     d:'„Az egyenleged 254 300 Ft." · „Vasárnap zárva vagyunk, szombaton 8–13-ig." A kérdések nagy része itt le is zárul — és ez így van jól.'},
+    {t:'A határ: komplex kérdés', k:['q3','u','e1','b','b.nincs_talalat'],
+     d:'„Miért csökkent a hitelkeretem, és mit tehetek ellene?" Ez nem fér bele egy intentbe: kontextus és árnyalat kell hozzá.'},
+    {t:'Zsákutca', k:['q3','b.nincs_talalat','e4','dead'],
+     d:'A szabály-fa nem talál ágat: „Sajnos ezt nem értem." Ez a determinisztikus bot plafonja — innen lép tovább a 2. nézet.'}
+  ]
+},
+{
+  id:'v2',
+  tab:['2 · + LLM fallback','amit a fa elejt, az LLM megfogja'],
+  nodes:[
+    {id:'u',   kind:'user', x:40,  y:250, w:150, h:130, label:'User'},
+    {id:'q1',  kind:'q', x:20, y:430, w:300, h:70, label:'„Miért csökkent a hitelkeretem,', label2:'és mit tehetek ellene?"'},
+    {id:'b',   kind:'rule', x:250, y:90,  w:350, h:340, label:'Szabály-bot', sub:'első szűrő — algoritmus, fillérekből',
+     tools:[{id:'user_needs_balance',label:'user_needs_balance'},
+            {id:'user_needs_card_block',label:'user_needs_card_block'},
+            {id:'user_needs_branch_info',label:'user_needs_branch_info'},
+            {id:'nincs_talalat',label:'nincs találat',cls:'dead'}]},
+    {id:'api', kind:'sys',  x:680, y:60,  w:520, h:160, label:'Banki backend', sub:'fix akciók, sablonválaszok',
+     tools:[{id:'getBalance',label:'getBalance'},{id:'blockCard',label:'blockCard'},{id:'fixReply',label:'fixReply'}]},
+    {id:'llm', kind:'llm',  x:680, y:330, w:520, h:250, label:'LLM fallback', sub:'nyílt kérdés, kontextussal',
+     tools:[{id:'ugyfelKontextus',label:'ügyfélkontextus'},{id:'valaszGeneralas',label:'válaszgenerálás'}]}
+  ],
+  containers:[],
+  annots:[{x:250, y:620, text:'A fallback sorrendje a lényeg: ami mehet olcsón, menjen olcsón — LLM csak a maradékra.'}],
+  edges:[
+    {id:'e1', from:{n:'u',s:'r',dy:-18}, to:{n:'b',s:'l',dy:-50}, label:'kérdés'},
+    {id:'e2', from:{n:'b',t:'user_needs_balance',s:'r'}, to:{n:'api',s:'l'}, label:'illeszkedik → fix út'},
+    {id:'e3', from:{n:'api',s:'t'}, to:{n:'u',s:'t'}, label:'sablonválasz'},
+    {id:'ef', from:{n:'b',t:'nincs_talalat',s:'r'}, to:{n:'llm',s:'l',dy:-45}, label:'fallback'},
+    {id:'e5', from:{n:'llm',s:'b',dx:-140}, to:{n:'u',s:'b'}, label:'generált válasz'}
+  ],
+  steps:[
+    {t:'Komplex kérdés érkezik', k:['q1','u','e1','b'],
+     d:'„Miért csökkent a hitelkeretem, és mit tehetek ellene?" A kérdés ugyanoda fut be — a belépési pont nem változik.'},
+    {t:'A szabály-fa először próbál', k:['b','b.user_needs_balance','b.user_needs_card_block','b.user_needs_branch_info'],
+     d:'Az egyszerű kérdéseket továbbra is a fa zárja le, olcsón, algoritmussal. A fallback nem váltja ki a szabályt — mögé áll.'},
+    {t:'Nincs találat → fallback', k:['b.nincs_talalat','ef','llm'],
+     d:'A fa nem talál ágat, de már nem zsákutca: a kérdés az LLM-hez esik tovább. A zsákutcából elágazás lett.'},
+    {t:'Az LLM kontextussal dolgozik', k:['llm','llm.ugyfelKontextus','llm.valaszGeneralas'],
+     d:'Megkapja az ügyfél kontextusát (számlák, hiteltörténet), megérti az árnyalt kérdést, és felépíti a választ.'},
+    {t:'Generált válasz a usernek', k:['llm','e5','u'],
+     d:'A user ugyanabban a beszélgetésben kap választ — nem látja, hogy a motorháztető alatt szabály vagy LLM futott.'},
+    {t:'Az ár, amit ezért fizetsz', k:['llm'],
+     d:'Minden LLM-hívás pénz, késleltetés és egy adag bizonytalanság. És ez az LLM még mindent maga csinál — nem tudja, mit nem tud. Ezen javít a 3. nézet.'}
+  ]
+},
+{
+  id:'v3',
+  tab:['3 · Fallback + routing','az LLM nem válaszol — irányít'],
+  nodes:[
+    {id:'u',      kind:'user', x:30,  y:260, w:140, h:120, label:'User'},
+    {id:'b',      kind:'rule', x:210, y:240, w:270, h:180, label:'Szabály-fa', sub:'olcsó első szűrő — algoritmus',
+     tools:[{id:'intents',label:'ismert intentek'},{id:'nincs_talalat',label:'nincs találat',cls:'dead'}]},
+    {id:'llm',    kind:'llm',  x:530, y:230, w:290, h:200, label:'LLM router', sub:'intent + konfidencia',
+     tools:[{id:'routeTo',label:'routeTo'},{id:'konfidencia',label:'konfidencia'}]},
+    {id:'rag',    kind:'sys',  x:880, y:25,  w:370, h:125, label:'RAG · tudásbázis', sub:'„Mit jelent a THM?" (6. óra)',
+     tools:[{id:'searchKnowledge',label:'searchKnowledge'}]},
+    {id:'api',    kind:'sys',  x:880, y:190, w:370, h:125, label:'Banki akció', sub:'„Rögzítsd a kamatom" — approval flow-val',
+     tools:[{id:'getBalance',label:'getBalance'},{id:'fixKamat',label:'fixKamat'}]},
+    {id:'eszter', kind:'rule', x:880, y:355, w:370, h:110, label:'Eszter · lakossági hitel', sub:'„Milyen hitel fér bele?" — delegálás'},
+    {id:'human',  kind:'dead', x:880, y:505, w:370, h:110, label:'Ember · eszkaláció', sub:'alacsony konfidencia → handover'}
+  ],
+  containers:[],
+  annots:[{x:30, y:620, text:'Bármelyik ág fut, a user egyetlen beszélgetést lát — a válasz ugyanoda érkezik vissza.'}],
+  edges:[
+    {id:'e1',  from:{n:'u',s:'r',dy:-15}, to:{n:'b',s:'l',dy:-25}, label:'kérdés'},
+    {id:'ef',  from:{n:'b',t:'nincs_talalat',s:'r'}, to:{n:'llm',s:'l'}, label:'fallback'},
+    {id:'er1', from:{n:'llm',s:'r',dy:-60}, to:{n:'rag',s:'l'},    label:'tudás-kérdés'},
+    {id:'er2', from:{n:'llm',s:'r',dy:-15}, to:{n:'api',s:'l'},    label:'akció'},
+    {id:'er3', from:{n:'llm',s:'r',dy:30},  to:{n:'eszter',s:'l'}, label:'lakossági hitel'},
+    {id:'er4', from:{n:'llm',s:'b'},        to:{n:'human',s:'l'},  label:'alacsony konfidencia'}
+  ],
+  steps:[
+    {t:'Kérdés érkezik', k:['u','e1','b'],
+     d:'A belépési pont változatlan. Az architektúra mögötte nőtt — a user ebből semmit nem lát.'},
+    {t:'A szabály-fa olcsón szűr', k:['b','b.intents'],
+     d:'Ami illeszkedik egy ismert intentre, az itt le is zárul, determinisztikusan, algoritmussal. Az LLM-hez csak a maradék jut el.'},
+    {t:'Fallback — de már nem válasz: döntés', k:['b.nincs_talalat','ef','llm','llm.routeTo','llm.konfidencia'],
+     d:'A 2. nézet LLM-je mindent maga csinált. Itt az LLM először dönt: mi ez a kérdés, mennyire biztos benne, és KI a legjobb gazdája?'},
+    {t:'Tudás-kérdés → RAG', k:['llm','er1','rag','rag.searchKnowledge'],
+     d:'„Mit jelent a THM?" — ez nem akció, hanem tudás-kérdés: a searchKnowledge a tudásbázisból keresi ki a választ (emlékezz: 6. óra).'},
+    {t:'Akció → banki tool', k:['llm','er2','api','api.getBalance','api.fixKamat'],
+     d:'„Rögzítsd a kamatom" — ez cselekvés: tool-hívás a banki backenden. Itt kapcsol be az approval flow (11. lépés a fő íven).'},
+    {t:'Hitel-ügy → Eszter', k:['llm','er3','eszter'],
+     d:'Komplex lakossági hitel-téma a specialista agenthez megy (4. lépés: delegálás). A közös memória miatt Eszter már tudja, ki vagy.'},
+    {t:'Alacsony konfidencia → ember', k:['llm','llm.konfidencia','er4','human'],
+     d:'Ha a router nem elég biztos, nem hallucinál és nem is találgat ágat: emberhez eszkalál (6. lépés). A konfidencia itt jogosultsági kapu.'},
+    {t:'Egy felület, sok út', k:['u','b','llm','rag','api','eszter','human','e1','ef','er1','er2','er3','er4'],
+     d:'Ez a teljes kép: olcsó szűrő elöl, döntő LLM középen, specializált végrehajtók hátul. A user pedig végig egyetlen beszélgetést lát.'}
+  ]
+},
+{
+  id:'v4',
+  tab:['4 · Multiturn + specialisták','több kör, több szakértő, egy memória'],
+  nodes:[
+    {id:'q1', kind:'q',  x:20, y:40,  w:300, h:50, label:'„Hitelt szeretnék felvenni"'},
+    {id:'a1', kind:'qa', x:20, y:102, w:300, h:50, label:'„Mekkora összegre, és mi a cél?"'},
+    {id:'q2', kind:'q',  x:20, y:164, w:300, h:50, label:'„10 millió, lakásfelújításra"'},
+    {id:'u',  kind:'user', x:40,  y:250, w:150, h:130, label:'User'},
+    {id:'ro', kind:'llm',  x:250, y:250, w:250, h:170, label:'Router', sub:'intent + konfidencia',
+     tools:[{id:'routeTo',label:'routeTo'}]},
+    {id:'eszter', kind:'rule', x:640, y:50,  w:560, h:150, label:'Eszter · lakossági hitelspecialista', sub:'jövedelem, önerő, futamidő',
+     tools:[{id:'hitelKalkulator',label:'hitelKalkulator'},{id:'jovedelemVizsgalat',label:'jovedelemVizsgalat'}]},
+    {id:'szamla', kind:'rule', x:640, y:250, w:560, h:150, label:'Számlanyitás-specialista', sub:'lakossági és céges számlacsomagok',
+     tools:[{id:'dijCsomagok',label:'dijCsomagok'},{id:'dokumentumLista',label:'dokumentumLista'}]},
+    {id:'kkv', kind:'rule', x:640, y:450, w:560, h:150, label:'KKV pályázat-specialista', sub:'támogatások, EU-s források',
+     tools:[{id:'palyazatKereso',label:'palyazatKereso'},{id:'hataridoFigyelo',label:'hataridoFigyelo'}]}
+  ],
+  containers:[{id:'cont', x:600, y:15, w:640, h:605, label:'KÖZÖS MEMÓRIA — minden kör és minden handoff ugyanide ír'}],
+  annots:[],
+  edges:[
+    {id:'e1',  from:{n:'u',s:'r',dy:-20}, to:{n:'ro',s:'l',dy:-20}, label:'kérdés'},
+    {id:'er1', from:{n:'ro',s:'r',dy:-45}, to:{n:'eszter',s:'l',dy:25}, label:'lakossági hitel'},
+    {id:'er2', from:{n:'ro',s:'r',dy:0},   to:{n:'szamla',s:'l'},       label:'számlanyitás'},
+    {id:'er3', from:{n:'ro',s:'r',dy:45},  to:{n:'kkv',s:'l',dy:-25},   label:'KKV pályázat'},
+    {id:'eb',  from:{n:'eszter',s:'l',dy:-25}, to:{n:'u',s:'t'},        label:'visszakérdez'},
+    {id:'ef',  from:{n:'u',s:'t',dx:60}, to:{n:'eszter',s:'b',dx:-180}, label:'pontosítás — 2. kör'}
+  ],
+  steps:[
+    {t:'A kérés befut', k:['q1','u','e1','ro'],
+     d:'„Hitelt szeretnék felvenni." Az intent világos — a részletek viszont nem. Ez tipikusan nem egykörös ügy.'},
+    {t:'Routing a specialistához', k:['ro','ro.routeTo','er1','eszter'],
+     d:'Nem egy általános agent kapja: Eszter, a lakossági hitelspecialista. Szűkebb terület, saját toolok, pontosabb válaszok.'},
+    {t:'Multiturn: Eszter visszakérdez', k:['eszter','eb','a1','u'],
+     d:'Nincs elég infó → nem találgat, hanem kérdez: „Mekkora összegre, és mi a cél?" (5. lépés a fő íven: multistep).'},
+    {t:'A user pontosít — 2. kör', k:['q2','u','ef','eszter','eszter.hitelKalkulator','eszter.jovedelemVizsgalat'],
+     d:'„10 millió, lakásfelújításra." A beszélgetés körökben épül, és minden kör pontosabbá teszi a megoldást — ez a multiturn.'},
+    {t:'A közös memória dolgozik', k:['cont','eszter','szamla','kkv'],
+     d:'Minden kör és minden handoff ugyanabba a memóriába ír. Ezért nem kell semmit újra elmondani — és ezért nem call-center-élmény a delegálás.'},
+    {t:'Másik ügy → másik specialista', k:['q1','u','e1','ro','ro.routeTo','er2','szamla'],
+     d:'„Céges számlát nyitnék" → a számlanyitás-specialista kapja. A router ugyanaz, a szakértő más — a felület a user felé változatlan.'},
+    {t:'Harmadik ügy → KKV pályázat', k:['u','e1','ro','ro.routeTo','er3','kkv'],
+     d:'„Van EU-s támogatás gépbeszerzésre?" → a KKV pályázat-specialistához fut. Minden specialista a saját tool-készletével dolgozik.'},
+    {t:'Miért segíti ez a multi-agentet?', k:['q1','a1','q2','u','ro','eszter','szamla','kkv','cont','e1','er1','er2','er3','eb','ef'],
+     d:'A multiturn adja a teret, hogy a specialisták pontosítsanak; a közös memória adja a folytonosságot. E kettő nélkül a delegálás széteső call-center-élmény lenne.'}
+  ]
+}
+];
+
+/* ------------------------------------------------------------------ */
+/* SVG renderelés                                                      */
+/* ------------------------------------------------------------------ */
+
+const VB_W = 1280, VB_H = 640;
+const NS = 'http://www.w3.org/2000/svg';
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function chipW(label){ return Math.round(label.length * 7.7) + 28; }
+
+function kindColor(kind){
+  return kind === 'user' ? COLORS.user
+       : kind === 'q'    ? COLORS.user
+       : kind === 'qa'   ? COLORS.rule
+       : kind === 'llm'  ? COLORS.llm
+       : kind === 'sys'  ? COLORS.tool
+       : kind === 'dead' ? COLORS.red
+       : COLORS.rule;
+}
+
+/* Chipek elrendezése a node dobozán belül; visszaadja a chip-téglalapokat. */
+function layoutChips(node){
+  const chips = [];
+  if (!node.tools) return chips;
+  const x0 = node.x + 18, xMax = node.x + node.w - 18;
+  let cx = x0, cy = node.y + 82;
+  for (const t of node.tools){
+    const w = chipW(t.label);
+    if (cx + w > xMax){ cx = x0; cy += 44; }
+    chips.push({ ...t, x: cx, y: cy, w, h: 32, key: node.id + '.' + t.id });
+    cx += w + 12;
+  }
+  return chips;
+}
+
+function anchor(rect, side, dx, dy){
+  const p = { x: rect.x, y: rect.y };
+  if (side === 'r'){ p.x += rect.w;      p.y += rect.h / 2; }
+  if (side === 'l'){                     p.y += rect.h / 2; }
+  if (side === 't'){ p.x += rect.w / 2;                     }
+  if (side === 'b'){ p.x += rect.w / 2;  p.y += rect.h;     }
+  return { x: p.x + (dx || 0), y: p.y + (dy || 0), side };
+}
+
+const DIRV = { l:[-1,0], r:[1,0], t:[0,-1], b:[0,1] };
+
+function edgePath(a, b, lt){
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const k = Math.min(170, Math.max(45, dist * 0.42));
+  const [ax, ay] = DIRV[a.side], [bx, by] = DIRV[b.side];
+  const c1 = { x: a.x + ax * k, y: a.y + ay * k };
+  const c2 = { x: b.x + bx * k, y: b.y + by * k };
+  /* címke a görbe lt paraméterű pontjánál (alapból a felezőpont) */
+  const t = lt == null ? 0.5 : lt, u = 1 - t;
+  const bez = (p0, p1, p2, p3) => u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
+  const mid = { x: bez(a.x, c1.x, c2.x, b.x), y: bez(a.y, c1.y, c2.y, b.y) };
+  return { d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`, mid };
+}
+
+function userGlyph(n){
+  const cx = n.x + n.w / 2, cy = n.y + 42;
+  return `<circle cx="${cx}" cy="${cy}" r="15" fill="none" stroke="${COLORS.user}" stroke-width="2.2"/>
+    <path d="M ${cx - 24} ${cy + 46} Q ${cx} ${cy + 12} ${cx + 24} ${cy + 46}"
+          fill="none" stroke="${COLORS.user}" stroke-width="2.2" stroke-linecap="round"/>`;
+}
+
+function renderView(view){
+  const rects = {};   /* node-id és chip-key → téglalap */
+  let sNodes = '', sChips = '', sConts = '', sEdges = '', sAnnots = '';
+
+  for (const c of (view.containers || [])){
+    sConts += `<g class="k" data-k="${c.id}">
+      <rect class="cont" x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="14"/>
+      <text class="contlab" x="${c.x + 18}" y="${c.y - 10}">${esc(c.label)}</text>
+    </g>`;
+  }
+
+  for (const n of view.nodes){
+    rects[n.id] = n;
+    const col = kindColor(n.kind);
+    const isBubble = n.kind === 'q' || n.kind === 'qa';
+    let inner;
+    if (n.kind === 'user'){
+      inner = userGlyph(n) +
+        `<text class="ntitle" x="${n.x + n.w / 2}" y="${n.y + n.h - 18}" text-anchor="middle" fill="${COLORS.user}">${esc(n.label)}</text>`;
+    } else if (isBubble){
+      const lines = [n.label, n.label2].filter(Boolean);
+      inner = lines.map((L, li) =>
+        `<text class="btxt" x="${n.x + n.w / 2}" y="${n.y + n.h / 2 + (li - (lines.length - 1) / 2) * 16 + 4}"
+               text-anchor="middle" fill="${col}">${esc(L)}</text>`).join('');
+    } else {
+      inner = `<text class="ntitle" x="${n.x + 20}" y="${n.y + 36}" fill="${col}">${esc(n.label)}</text>` +
+        (n.sub ? `<text class="nsub" x="${n.x + 20}" y="${n.y + 56}">${esc(n.sub)}</text>` : '');
+    }
+    sNodes += `<g class="k${n.faded ? ' faded' : ''}" data-k="${n.id}">
+      <rect class="box${isBubble ? ' bubble' : ''}" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${isBubble ? 18 : 14}" stroke="${col}"/>
+      ${inner}
+    </g>`;
+
+    for (const ch of layoutChips(n)){
+      rects[ch.key] = ch;
+      sChips += `<g class="k chip ${ch.cls || 'tool'}" data-k="${ch.key}">
+        <rect class="chipbox" x="${ch.x}" y="${ch.y}" width="${ch.w}" height="${ch.h}" rx="16"/>
+        <text x="${ch.x + ch.w / 2}" y="${ch.y + 21}" text-anchor="middle">${esc(ch.label)}</text>
+      </g>`;
+    }
+  }
+
+  for (const e of view.edges){
+    const rA = e.from.t ? rects[e.from.n + '.' + e.from.t] : rects[e.from.n];
+    const rB = e.to.t   ? rects[e.to.n   + '.' + e.to.t]   : rects[e.to.n];
+    const a = anchor(rA, e.from.s, e.from.dx, e.from.dy);
+    const b = anchor(rB, e.to.s,   e.to.dx,   e.to.dy);
+    const { d, mid } = edgePath(a, b, e.lt);
+    sEdges += `<g class="k edge ${e.cls || ''}" data-k="${e.id}">
+      <path d="${d}"/>
+      ${e.label ? `<text class="elab" x="${mid.x}" y="${mid.y - 8}">${esc(e.label)}</text>` : ''}
+    </g>`;
+  }
+
+  for (const an of (view.annots || [])){
+    sAnnots += `<text class="annot" x="${an.x}" y="${an.y}">${esc(an.text)}</text>`;
+  }
+
+  return `<svg id="svg-${view.id}" viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet" xmlns="${NS}">
+    ${sConts}${sEdges}${sNodes}${sChips}${sAnnots}
+  </svg>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Állapot + interakció                                                */
+/* ------------------------------------------------------------------ */
+
+const stage = document.getElementById('stage');
+const tabsEl = document.getElementById('tabs');
+const stepsEl = document.getElementById('steps');
+const stepnoEl = document.getElementById('stepno');
+const titleEl = document.getElementById('steptitle');
+const descEl = document.getElementById('stepdesc');
+const playBtn = document.getElementById('play');
+
+let cur = 0;                 /* aktív nézet indexe */
+let stepIdx = -1;            /* -1 = áttekintés */
+let timer = null;
+
+stage.innerHTML = VIEWS.map(renderView).join('');
+
+VIEWS.forEach((v, idx) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<b>${esc(v.tab[0])}</b>${esc(v.tab[1])}`;
+  b.addEventListener('click', () => selectView(idx));
+  tabsEl.appendChild(b);
+});
+
+function svgOf(idx){ return document.getElementById('svg-' + VIEWS[idx].id); }
+
+function selectView(idx){
+  stopPlay();
+  cur = idx;
+  stepIdx = -1;
+  [...tabsEl.children].forEach((b, i) => b.classList.toggle('sel', i === idx));
+  [...stage.querySelectorAll('svg')].forEach((s, i) => s.classList.toggle('vis', i === idx));
+  buildStepList();
+  applyStep();
+}
+
+function buildStepList(){
+  stepsEl.innerHTML = '';
+  VIEWS[cur].steps.forEach((st, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="n">${i + 1}</span><span>${esc(st.t)}</span>`;
+    li.addEventListener('click', () => { stopPlay(); stepIdx = i; applyStep(); });
+    stepsEl.appendChild(li);
+  });
+}
+
+function applyStep(){
+  const view = VIEWS[cur];
+  const svg = svgOf(cur);
+  const keyed = svg.querySelectorAll('.k');
+
+  if (stepIdx < 0){
+    svg.classList.remove('stepped');
+    keyed.forEach(g => g.classList.remove('on'));
+    stepnoEl.textContent = view.tab[0];
+    titleEl.textContent = view.tab[1].charAt(0).toUpperCase() + view.tab[1].slice(1);
+    descEl.textContent = 'Kattints egy lépésre, léptess a ← → billentyűkkel, vagy indítsd el a lejátszást.';
+  } else {
+    const st = view.steps[stepIdx];
+    const on = new Set(st.k);
+    svg.classList.add('stepped');
+    keyed.forEach(g => g.classList.toggle('on', on.has(g.dataset.k)));
+    stepnoEl.textContent = `Lépés ${stepIdx + 1} / ${view.steps.length}`;
+    titleEl.textContent = st.t;
+    descEl.textContent = st.d;
+  }
+
+  [...stepsEl.children].forEach((li, i) => {
+    li.classList.toggle('cur', i === stepIdx);
+    li.classList.toggle('done', i < stepIdx);
+    if (i === stepIdx) li.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function move(dir){
+  const max = VIEWS[cur].steps.length - 1;
+  stepIdx = Math.min(max, Math.max(-1, stepIdx + dir));
+  applyStep();
+}
+
+function stopPlay(){
+  if (timer){ clearInterval(timer); timer = null; }
+  playBtn.classList.remove('playing');
+  playBtn.textContent = '▶ Lejátszás';
+}
+
+function togglePlay(){
+  if (timer){ stopPlay(); return; }
+  const max = VIEWS[cur].steps.length - 1;
+  if (stepIdx >= max) stepIdx = -1;      /* a végéről újraindul */
+  playBtn.classList.add('playing');
+  playBtn.textContent = '⏸ Szünet';
+  move(1);
+  timer = setInterval(() => {
+    if (stepIdx >= max){ stopPlay(); return; }
+    move(1);
+  }, 1500);
+}
+
+document.getElementById('prev').addEventListener('click', () => { stopPlay(); move(-1); });
+document.getElementById('next').addEventListener('click', () => { stopPlay(); move(1); });
+playBtn.addEventListener('click', togglePlay);
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'ArrowRight'){ stopPlay(); move(1); ev.preventDefault(); }
+  else if (ev.key === 'ArrowLeft'){ stopPlay(); move(-1); ev.preventDefault(); }
+  else if (ev.key === ' '){ togglePlay(); ev.preventDefault(); }
+  else if (ev.key >= '1' && ev.key <= '4'){ selectView(Number(ev.key) - 1); }
+});
+
+selectView(0);
+</script>

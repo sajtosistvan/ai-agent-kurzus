@@ -98,9 +98,21 @@ The **product's** prompts to the LLM (`prompts.ts`, `ingest-prompts.ts`) are XML
 
 `shopify-feed.ts` fetches paginated Shopify `products.json`, filters out non-plants, extracts the botanical (latin) name as the natural key, converts non-HUF prices at fixed rates (**USD=310, EUR=350**), and dedups by latin name. The agent then fills the Hungarian name/description and inferred care fields before writing via `upsertProduct`. The standalone `.claude/skills/product-ingest/` skill implements the same pipeline as scripts for bulk use outside the app.
 
+## Architecture Decision Records (ADR)
+
+The project keeps a **decision log** in `docs/adr/`: one file per decision recording *why*, the alternatives considered, and the consequences. The code shows *what* we do; ADRs preserve *why*.
+
+**When to write an ADR** (this is a rule, not a suggestion): whenever a decision is architecturally significant or hard to reverse — a structural/technology choice, a project-wide convention, or the disposition of an **autotest review** (which suggestions we adopt vs. reject, and why). Skip ADRs for trivial, easily-reversible changes. Rule of thumb: if someone would ask „why this way?" in six months, write one.
+
+Mechanics: copy `docs/adr/_template.md` → `docs/adr/NNNN-short-title.md` (four-digit, monotonically increasing; never reuse a number), fill it in, add a row to the index table in `docs/adr/README.md`. Accepted ADRs are never rewritten — supersede with a new one and set the old status to „Felváltva: ADR-NNNN". Full convention: `docs/adr/README.md`.
+
+## Testing / QA
+
+`.claude/skills/flow-test/` — LLM-as-user conversation tests for the orchestrator/package flow (5 scenarios × router/delegate, HTTP + Playwright drivers). `.claude/skills/autotest/` — runs the Playwright difficulty-ladder **battery** (single→multi→complex→stress→trolling), evaluates the results into a self-contained HTML report with suggestions, asks which suggestions to implement, and logs the decision as an ADR.
+
 ## Reference docs
 
-Domain and decisions live in `docs/`: `architektura.md` (structure + key decisions), `system-prompt.md` (source of the SQL rules), `konvenciok.md` (project-agnostic TS conventions applied here), `ddd/model.md` + `ddd/glossary.md` (domain model + ubiquitous language), `stack.md`, `brs-plantbase.md`.
+Domain and decisions live in `docs/`: `architektura.md` (structure + key decisions), `adr/` (architecture decision records — the decision log), `system-prompt.md` (source of the SQL rules), `konvenciok.md` (project-agnostic TS conventions applied here), `ddd/model.md` + `ddd/glossary.md` (domain model + ubiquitous language), `stack.md`, `brs-plantbase.md`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
