@@ -90,14 +90,24 @@ tölti. `~/Library/Application Support/Claude/claude_desktop_config.json`:
 shell-wrapper, amit a Node nem tud futtatni (és a wrapper viszont a PATH-ból keresné a node-ot,
 ami a Desktop alatt szintén nincs meg). A `cwd` sem elhagyható: abból töltődik az `.env`.
 
-### Inspector (host nélküli teszt)
+### Inspector (host nélküli teszt) — a DEMÓRA is ez a legjobb
+
+Két GUI van, mindkettő ugyanazt a szerverünket beszéli:
 
 ```bash
-pnpm mcp:inspect
+pnpm mcp:inspect     # hivatalos MCP Inspector — a szervert MAGA indítja
+pnpm mcp:mcpjam      # MCPJam — a szervert a GUI-ban veszed fel, és LLM-mel is chatelhetsz
 ```
 
-Böngészőben nyílik: tool-lista, séma, kézi hívás, nyers JSON-RPC forgalom. **Mindig ezzel
-teszteld először** — sokkal gyorsabb visszajelzés, mint egy host újraindítgatása.
+⚠️ **Port-ütközés:** mindkettő a **6274**-et akarja alapból. Ezért a `mcp:inspect` a 6280/6281-re
+van állítva (`CLIENT_PORT` / `SERVER_PORT`), így a kettő egyszerre futhat — demón ez kell, mert
+egymás mellett mutatod őket.
+
+A hivatalos Inspector a linkben **auth tokent** ad; a kiírt teljes URL-t nyisd meg, ne csak a
+`localhost:6280`-at.
+
+Miért jobb ez demóra, mint egy host: látszik a **séma**, a nyers **JSON-RPC** forgalom és a
+tool-eredmény formázatlanul — vagyis maga a protokoll, nem csak a hatása.
 
 ## Előfeltételek
 
