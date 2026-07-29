@@ -67,7 +67,27 @@ claude mcp add --scope project plantbase -- pnpm mcp
 claude mcp list          # állapot: ✓ connected
 ```
 
-### Claude Desktop
+### Claude Desktop — GUI-ból, Extensionként (ez a demó-út)
+
+**A Connectors menü NEM erre való**: az távoli, URL-es szervereket vesz fel. Egy lokális stdio
+szerver ott soha nem jelenik meg. Lokálisat a GUI-ból **Extension** (`.mcpb` csomag) formájában
+lehet telepíteni — így ül a gépen a filesystem, az iMessage vagy a Figma is.
+
+```bash
+pnpm mcp:mcpb        # → dist/plantbase.mcpb
+```
+
+Aztán **Beállítások → Extensions → Advanced settings → Install extension…** (vagy húzd rá a
+fájlt az ablakra). Telepítéskor a Desktop **mappaválasztót** mutat: add meg az `ai-agent-kurzus`
+checkout gyökerét.
+
+⚠️ Ez **dev-csomag**: nem tartalmazza a szervert, hanem a repóban lévő ÉLŐ forrást indítja
+(`mcpb/server/launcher.js` → `tsx` → `apps/mcp/src/main.ts`, `stdio: 'inherit'`). Pont ezt
+akarjuk órán: a kódot élőben szerkesztjük, és a következő tool-hívás már az új kódot futtatja.
+Egy terjeszthető MCPB mindent becsomagolna (esbuild-bundle + vendorolt `node_modules`) — itt az
+lenne a rossz válasz.
+
+### Claude Desktop — kézzel, a config-fájlban
 
 A Desktop nem örökli a shell PATH-ját, ezért **abszolút út** kell, és az `.env`-et a `cwd`-ből
 tölti. `~/Library/Application Support/Claude/claude_desktop_config.json`:

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "plantbase",
+  "display_name": "Plantbase",
+  "version": "0.1.0",
+  "description": "Magyar növény-webshop katalógusa és gondozási tudásbázisa — kereső toolokkal és egy teljes agenttel.",
+  "long_description": "A Plantbase egy AI-agent kurzus projektje. Három toolt ad: search_plants (strukturált katalógus-keresés), search_knowledge (szemantikus keresés a gondozási cikkekben) és ask_plantbase, ami mögött a projekt SAJÁT agentje fut le — SQL-t ír, tudásbázist keres, és kész magyar választ ad forrásokkal. A felület csak olvas.",
+  "author": {
+    "name": "Sajtos István"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/launcher.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/launcher.js"],
+      "env": {
+        "PLANTBASE_REPO": "${user_config.repoDir}"
+      }
+    }
+  },
+  "user_config": {
+    "repoDir": {
+      "type": "directory",
+      "title": "Plantbase repo mappája",
+      "description": "Az ai-agent-kurzus checkout gyökere. Innen indul a szerver, és innen töltődik az .env (ANTHROPIC_API_KEY, adatbázis).",
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "search_plants",
+      "description": "Strukturált keresés a növény-katalógusban (kategória, fény, ár, pet-safe, készlet)."
+    },
+    {
+      "name": "search_knowledge",
+      "description": "Szemantikus keresés a gondozási cikkekben, forrás-URL-ekkel."
+    },
+    {
+      "name": "ask_plantbase",
+      "description": "Kérdés a Plantbase szakértő agentnek — kész, magyar nyelvű válasz."
+    }
+  ],
+  "keywords": ["mcp", "plantbase", "növény", "rag", "agent"],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}
