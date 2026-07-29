@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "plantbase": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

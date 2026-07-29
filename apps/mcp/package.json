@@ -1,0 +1,15 @@
+{
+  "name": "@plantbase/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "nx": {
+    "name": "mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@plantbase/core": "workspace:*",
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  }
+}

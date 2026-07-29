@@ -29,14 +29,21 @@ function getPool(): pg.Pool {
   return pool;
 }
 
-/** Lefuttat egy (már guarddal ellenőrzött) SELECT-et a read-only kapcsolaton. */
-export async function runReadOnlyQuery(sql: string): Promise<SqlResult> {
+/** Lefuttat egy (már guarddal ellenőrzött) SELECT-et a read-only kapcsolaton.
+ *
+ *  A `params` opcionális: az agent runSql-je KÉSZ SQL-t ad be (a szöveget a modell írta, ezért
+ *  védi a guard), a kézzel írt lekérdezések viszont paraméterezve ($1, $2, …) futnak — így az
+ *  értékek soha nem kerülnek bele a lekérdezés szövegébe (SQL-injekció ellen). */
+export async function runReadOnlyQuery(
+  sql: string,
+  params: unknown[] = [],
+): Promise<SqlResult> {
   const client = await getPool().connect();
   try {
     // Read-only tranzakció: harmadik védelmi réteg a szerepkör + guard mellett.
     await client.query('START TRANSACTION READ ONLY');
     try {
-      const result = await client.query(sql);
+      const result = await client.query(sql, params);
       await client.query('COMMIT');
       return {
         columns: result.fields.map((f) => f.name),

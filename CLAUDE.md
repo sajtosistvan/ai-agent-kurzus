@@ -30,6 +30,11 @@ pnpm cli ask                 # interactive query mode
 pnpm cli ingest "..."        # catalog-editor agent (writes!); no args → interactive
 pnpm cli ask --quiet "..."   # only the final answer, no live trace
 
+# MCP server (stdio) — the Plantbase tools exposed to an EXTERNAL host (Claude Code/Desktop)
+pnpm mcp                     # runs the stdio server; a host normally spawns this, not you
+pnpm mcp:inspect             # MCP Inspector in the browser — test tools without a host
+
+
 # Database (Prisma, read-write connection)
 docker compose up -d         # Postgres on host port 5433 (NOT 5432)
 pnpm db:migrate              # prisma migrate dev
@@ -42,7 +47,7 @@ First-time setup: `pnpm install` (postinstall runs `prisma generate`) → `cp .e
 
 ## Architecture
 
-Nx monorepo, three projects: **`apps/cli`** (`@plantbase/cli`, commander + readline entrypoint), **`packages/core`** (`@plantbase/core`, framework-agnostic agent logic), **`packages/db`** (`@plantbase/db`, Prisma schema/migrations/seed + generated client).
+Nx monorepo, three projects: **`apps/cli`** (`@plantbase/cli`, commander + readline entrypoint), **`packages/core`** (`@plantbase/core`, framework-agnostic agent logic), **`packages/db`** (`@plantbase/db`, Prisma schema/migrations/seed + generated client). Plus the other entrypoints over the same core: **`apps/server`** (HTTP + streaming chat), **`apps/web`**, and **`apps/mcp`** (`@plantbase/mcp`, MCP stdio server — see `docs/mcp.md`).
 
 `packages/core` is **framework-agnostic**: it does not know its entrypoint (CLI/API/web). There is deliberately **no agent framework** so the mechanics stay legible.
 
@@ -112,7 +117,7 @@ Mechanics: copy `docs/adr/_template.md` → `docs/adr/NNNN-short-title.md` (four
 
 ## Reference docs
 
-Domain and decisions live in `docs/`: `architektura.md` (structure + key decisions), `adr/` (architecture decision records — the decision log), `system-prompt.md` (source of the SQL rules), `konvenciok.md` (project-agnostic TS conventions applied here), `ddd/model.md` + `ddd/glossary.md` (domain model + ubiquitous language), `stack.md`, `brs-plantbase.md`.
+Domain and decisions live in `docs/`: `architektura.md` (structure + key decisions), `adr/` (architecture decision records — the decision log), `system-prompt.md` (source of the SQL rules), `konvenciok.md` (project-agnostic TS conventions applied here), `ddd/model.md` + `ddd/glossary.md` (domain model + ubiquitous language), `mcp.md` (the MCP entrypoint: data-tool vs. agent-as-tool, stdio pitfalls, host wiring), `stack.md`, `brs-plantbase.md`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
