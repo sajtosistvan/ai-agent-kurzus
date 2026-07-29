@@ -14,6 +14,7 @@
     "cli": "tsx --conditions=@plantbase/source apps/cli/src/main.ts",
     "server": "tsx --conditions=@plantbase/source apps/server/src/main.ts",
     "mcp": "tsx --conditions=@plantbase/source apps/mcp/src/main.ts",
+    "mcp:http": "tsx --conditions=@plantbase/source apps/mcp/src/http.ts",
     "mcp:inspect": "CLIENT_PORT=6280 SERVER_PORT=6281 npx -y @modelcontextprotocol/inspector@2.0.0 pnpm mcp",
     "mcp:mcpjam": "npx -y @mcpjam/inspector@2.30.0",
     "mcp:smoke": "tsx --conditions=@plantbase/source apps/mcp/src/smoke.ts",

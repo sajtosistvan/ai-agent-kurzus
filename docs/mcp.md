@@ -135,8 +135,43 @@ Ugyanaz, mint a CLI-nél: futó Postgres (`docker compose up -d`), `.env` a repo
 (`ANTHROPIC_API_KEY`, `DATABASE_URL_READONLY`). Az `ask_plantbase` modellt hív, tehát tokenbe
 kerül; a `search_plants` nem.
 
-## Ha remote (HTTP) kell
+## Remote (HTTP) — hogy URL-ből bárki hozzáadhassa
 
-Az `apps/mcp/src/main.ts`-ben a `server` objektum változatlan marad, csak a transport cserélődik
-(`StreamableHTTPServerTransport` + Express + bearer token). Ez kell akkor, ha nem a saját gépeden
-futna, vagy ha ChatGPT-be is be akarnád kötni — az csak remote HTTPS URL-t fogad el.
+```
+main.ts (stdio)  →  a host INDÍTJA a folyamatot a te gépeden. Egy felhasználó, egy gép.
+http.ts (HTTP)   →  a szerver a NETEN fut, a host CSATLAKOZIK hozzá. Bárki, URL-lel.
+```
+
+A tooljaink és a `plantbase-server.ts` egyetlen sorát sem kellett hozzányúlni — ez az MCP
+lényege: a képességek és a szállítás külön rétegek.
+
+```bash
+MCP_PUBLIC_TOKEN=valami-hosszú-véletlen pnpm mcp:http    # → localhost:3010/mcp/<token>
+```
+
+**Stateless mód**: kérésenként új szerver + transport (`sessionIdGenerator: undefined`), így több
+konténer mögött sincs ragadós munkamenet.
+
+### Auth — amit tudni kell
+
+**A Claude connector-felületén nem lehet saját fejlécet (`Authorization`) megadni** — vagy OAuth,
+vagy semmi. Ezért a titok az ÚTVONALBA kerül (*capability URL*): `MCP_PUBLIC_TOKEN` beállításával
+a végpont `/mcp/<token>`, rossz token → 404. Ez **nem** OAuth: aki látja a linket, hívhatja.
+Kurzusra pont jó arány (kiosztod, óra után forgatod), éles termékhez OAuth kell.
+
+Ha a `MCP_PUBLIC_TOKEN` nincs beállítva, a végpont `/mcp` és **nyitott** — a szerver ezt indulásnál
+ki is írja.
+
+⚠️ Az `ask_plantbase` **modellt hív**, tehát minden hívás a mi API-kulcsunkat költi. Ezért van
+IP-alapú rate limit (5 perc / 60 kérés), és ezért kell a tokent cserélni, ha kikerül.
+
+### Railway
+
+Új service ugyanabban a projektben, ahol a Postgres és a web fut. `apps/mcp/railway.json` a
+konfiguráció (Nixpacks, `pnpm mcp:http`, health check a `/health`-en).
+
+Kötelező változók: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` (a RAG-embeddinghez), `DATABASE_URL_READONLY`
+(belső hálón a Postgres read-only szerepkörével), `MCP_PUBLIC_TOKEN`. A `PORT`-ot a platform adja.
+
+Bekötés a Claude-ba: **Beállítások → Connectors → Add custom connector**, és a teljes URL:
+`https://<railway-domain>/mcp/<token>`.

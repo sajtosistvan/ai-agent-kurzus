@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import { Writable } from 'node:stream';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   loadConfig,
@@ -8,9 +7,7 @@ import {
   closeReadOnlyPool,
   closePrisma,
 } from '@plantbase/core';
-import { registerAskPlantbase } from './tools/ask-plantbase/ask-plantbase-tool.js';
-import { registerSearchKnowledge } from './tools/search-knowledge/search-knowledge-tool.js';
-import { registerSearchPlants } from './tools/search-plants/search-plants-tool.js';
+import { buildPlantbaseServer, TOOL_NAMES } from './plantbase-server.js';
 
 // mcp/main.ts — a NEGYEDIK belépési pont a core fölé (CLI, HTTP-szerver, web mellé). Itt nem mi
 // hívjuk a modellt: egy IDEGEN host (Claude Desktop / Claude Code) modellje hívja a mi
@@ -26,11 +23,11 @@ import { registerSearchPlants } from './tools/search-plants/search-plants-tool.j
 //                      Lassabb, de a domén-tudás (prompt, SQL-szabályok, RAG) nálunk marad.
 //
 // TRANSPORT: stdio — a host indítja a folyamatot, és stdin/stdout-on beszél vele JSON-RPC-ben.
-// Dev módban ez a legegyszerűbb: nincs tunnel, nincs auth, a folyamat a gépen fut. (A remote
-// streamable-HTTP változat ugyanezt a `server` objektumot kapná, csak másik transporttal.)
-
-const SERVER_NAME = 'plantbase';
-const SERVER_VERSION = '0.1.0';
+// Dev módban ez a legegyszerűbb: nincs tunnel, nincs auth, a folyamat a gépen fut.
+//
+// A toolok és a szerver-összeállítás NEM itt vannak, hanem a plantbase-server.ts-ben — mert a
+// http.ts UGYANAZT a szervert szolgálja ki a hálózaton. Ez a fájl csak a stdio-specifikus
+// tennivalókat tartalmazza (a stdout elvétele, leállítás).
 
 /**
  * A stdout ELVÉTELE a program elől — stdio-transporton ez nem stílus kérdése:
@@ -75,25 +72,11 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const server = new McpServer(
-    { name: SERVER_NAME, version: SERVER_VERSION },
-    {
-      // A hostnak szóló használati útmutató — ez a modell kontextusába kerül a toolok mellé.
-      instructions:
-        'A Plantbase egy magyar növény-webshop katalógusa (products) és gondozási tudásbázisa. ' +
-        'Nyers katalógus-adathoz a search_plants, gondozási kérdéshez a search_knowledge, kész ' +
-        'szakértői válaszhoz (a kettő együtt, magyarul megfogalmazva) az ask_plantbase toolt hívd. ' +
-        'A felület csak olvas: a katalógust ezen keresztül nem lehet módosítani.',
-    },
-  );
-
-  registerSearchPlants(server);
-  registerSearchKnowledge(server);
-  registerAskPlantbase(server);
+  const server = buildPlantbaseServer();
 
   await server.connect(new StdioServerTransport(process.stdin, protocolOut));
   process.stderr.write(
-    'plantbase-mcp: kész (stdio), toolok: search_plants, search_knowledge, ask_plantbase\n',
+    `plantbase-mcp: kész (stdio), toolok: ${TOOL_NAMES.join(', ')}\n`,
   );
 }
 
