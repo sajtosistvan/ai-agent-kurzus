@@ -66,3 +66,6 @@ packages/db/generated/
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
 .playwright-mcp/
+
+# Az MCP publikus connector-URL-je (tokent tartalmaz)
+mcp-connector.local.txt
