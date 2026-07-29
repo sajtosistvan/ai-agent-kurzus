@@ -77,7 +77,7 @@ tölti. `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "plantbase": {
       "command": "/abszolút/út/node",
-      "args": ["/abszolút/út/ai-agent-kurzus/node_modules/.bin/tsx",
+      "args": ["/abszolút/út/ai-agent-kurzus/node_modules/tsx/dist/cli.mjs",
                "--conditions=@plantbase/source",
                "/abszolút/út/ai-agent-kurzus/apps/mcp/src/main.ts"],
       "cwd": "/abszolút/út/ai-agent-kurzus"
@@ -85,6 +85,10 @@ tölti. `~/Library/Application Support/Claude/claude_desktop_config.json`:
   }
 }
 ```
+
+⚠️ A tsx-nél a **`tsx/dist/cli.mjs`** kell, NEM a `node_modules/.bin/tsx` — az utóbbi egy
+shell-wrapper, amit a Node nem tud futtatni (és a wrapper viszont a PATH-ból keresné a node-ot,
+ami a Desktop alatt szintén nincs meg). A `cwd` sem elhagyható: abból töltődik az `.env`.
 
 ### Inspector (host nélküli teszt)
 
