@@ -30,7 +30,8 @@ export function registerAskPlantbase(server: McpServer): void {
         'katalógusból (ár, készlet, fény- és vízigény, pet-safe) és a gondozási tudásbázisból ' +
         'dolgozik, és kész, magyar nyelvű választ ad forrásokkal. Akkor használd, ha ajánlást, ' +
         'gondozási tanácsot vagy összetett, több szempontú kérdésre választ kérsz. Ha csak ' +
-        'nyers katalógus-sorokra van szükséged, a search_plants gyorsabb.',
+        'nyers katalógus-sorokra van szükséged, a search_plants gyorsabb; ha csak gondozási ' +
+        'cikkekre, a search_knowledge.',
       inputSchema: {
         kerdes: z
           .string()

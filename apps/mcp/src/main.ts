@@ -9,6 +9,7 @@ import {
   closePrisma,
 } from '@plantbase/core';
 import { registerAskPlantbase } from './tools/ask-plantbase/ask-plantbase-tool.js';
+import { registerSearchKnowledge } from './tools/search-knowledge/search-knowledge-tool.js';
 import { registerSearchPlants } from './tools/search-plants/search-plants-tool.js';
 
 // mcp/main.ts — a NEGYEDIK belépési pont a core fölé (CLI, HTTP-szerver, web mellé). Itt nem mi
@@ -16,11 +17,13 @@ import { registerSearchPlants } from './tools/search-plants/search-plants-tool.j
 // tooljainkat. Az MCP ennek a kapcsolatnak a szabványa — a `@plantbase/core` most sem tud róla,
 // hogy létezünk.
 //
-// KÉT TOOL, KÉT STÍLUS — szándékosan:
-//   search_plants  → ADAT-tool: strukturált szűrő → paraméterezett SELECT → nyers sorok.
-//                    Determinisztikus, gyors, unit-tesztelhető. A HÍVÓ modell gondolkodik.
-//   ask_plantbase  → AGENT-as-tool: a mi query-agentünk teljes loopja fut le mögötte.
-//                    Lassabb, de a domén-tudás (prompt, SQL-szabályok, RAG) nálunk marad.
+// HÁROM TOOL, HÁROM STÍLUS — szándékosan:
+//   search_plants    → ADAT-tool: strukturált szűrő → paraméterezett SELECT → nyers sorok.
+//                      Determinisztikus, gyors, unit-tesztelhető. A HÍVÓ modell gondolkodik.
+//   search_knowledge → ÁTKÖTÖTT core-tool: a meglévő executeSearchKnowledge (RAG) új felületen,
+//                      logika-változtatás nélkül. Ennyibe kerül egy tool, ha jól van elvágva.
+//   ask_plantbase    → AGENT-as-tool: a mi query-agentünk teljes loopja fut le mögötte.
+//                      Lassabb, de a domén-tudás (prompt, SQL-szabályok, RAG) nálunk marad.
 //
 // TRANSPORT: stdio — a host indítja a folyamatot, és stdin/stdout-on beszél vele JSON-RPC-ben.
 // Dev módban ez a legegyszerűbb: nincs tunnel, nincs auth, a folyamat a gépen fut. (A remote
@@ -78,16 +81,20 @@ async function main(): Promise<void> {
       // A hostnak szóló használati útmutató — ez a modell kontextusába kerül a toolok mellé.
       instructions:
         'A Plantbase egy magyar növény-webshop katalógusa (products) és gondozási tudásbázisa. ' +
-        'Nyers adathoz a search_plants, kész szakértői válaszhoz az ask_plantbase toolt hívd. ' +
+        'Nyers katalógus-adathoz a search_plants, gondozási kérdéshez a search_knowledge, kész ' +
+        'szakértői válaszhoz (a kettő együtt, magyarul megfogalmazva) az ask_plantbase toolt hívd. ' +
         'A felület csak olvas: a katalógust ezen keresztül nem lehet módosítani.',
     },
   );
 
   registerSearchPlants(server);
+  registerSearchKnowledge(server);
   registerAskPlantbase(server);
 
   await server.connect(new StdioServerTransport(process.stdin, protocolOut));
-  process.stderr.write(`plantbase-mcp: kész (stdio), toolok: search_plants, ask_plantbase\n`);
+  process.stderr.write(
+    'plantbase-mcp: kész (stdio), toolok: search_plants, search_knowledge, ask_plantbase\n',
+  );
 }
 
 /** A host SIGTERM/SIGINT-tel állítja le a folyamatot — a DB-kapcsolatokat lezárjuk. */

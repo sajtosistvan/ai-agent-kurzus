@@ -13,20 +13,26 @@ az agent-loopot indította el. Az MCP (Model Context Protocol) megfordítja az i
 A `@plantbase/core` most sem tud arról, hogy létezik az MCP-réteg — az `apps/mcp` a negyedik
 belépési pont a `cli`, `server`, `web` mellett.
 
-## A két tool — két stílus, szándékosan
+## A három tool — három stílus, szándékosan
 
-| | `search_plants` | `ask_plantbase` |
-|---|---|---|
-| Mi fut mögötte | egy paraméterezett `SELECT` | a **teljes query-agent loop** |
-| Ki gondolkodik | a **hívó** modell (Claude) | a **mi** agentünk |
-| Válasz | nyers JSON sorok | kész, magyar szöveg forrásokkal |
-| Sebesség | ~10 ms | több modellhívás, másodpercek |
-| Tesztelhetőség | unit-teszt (determinisztikus) | csak end-to-end |
-| Domén-tudás helye | a hívó kontextusában | a **mi** promptunkban |
+| | `search_plants` | `search_knowledge` | `ask_plantbase` |
+|---|---|---|---|
+| Mi fut mögötte | egy paraméterezett `SELECT` | a core RAG-pipeline-ja | a **teljes query-agent loop** |
+| Ki gondolkodik | a **hívó** modell (Claude) | a **hívó** modell | a **mi** agentünk |
+| Válasz | nyers JSON sorok | chunkok + forrás-URL-ek | kész, magyar szöveg forrásokkal |
+| Sebesség | ~10 ms | 1–2 kis modellhívás | több modellhívás, másodpercek |
+| Tesztelhetőség | unit-teszt (determinisztikus) | a core-ban tesztelt | csak end-to-end |
+| Domén-tudás helye | a hívó kontextusában | a hívó kontextusában | a **mi** promptunkban |
 
 **`search_plants`** a klasszikus MCP-minta: adatot szolgáltatunk, a hívó modell dönt. Olcsó,
 kiszámítható, a hívó szabadon kombinálja a saját kontextusával (pl. „a fenti lista alapján
 írj a kollégának egy emailt").
+
+**`search_knowledge`** nem új logika, hanem egy **átkötött** core-tool. A core-ban minden tool
+két részre van vágva: `executeSearchKnowledge` (határvédelem + logika) és `searchKnowledgeTool`
+(az AI SDK-nak szóló definíció). Az MCP-nek csak a második fele idegen — az elsőt változtatás
+nélkül újrahasználjuk, így az egész tool ~20 sor. Ez a jutalma annak, hogy a logika nem tapadt
+az SDK-hoz.
 
 **`ask_plantbase`** az *agent-as-tool*: a hívó számára ez egy sima tool, de mögötte a mi
 promptunk, a mi SQL-szabályaink és a RAG tudásbázisunk fut. A hívó modellnek nem kell tudnia,
