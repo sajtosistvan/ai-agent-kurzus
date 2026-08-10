@@ -7,6 +7,8 @@
     "name": "server"
   },
   "dependencies": {
+    "@mastra/ai-sdk": "^1.7.0",
+    "@mastra/core": "^1.55.0",
     "@plantbase/core": "workspace:*",
     "@plantbase/db": "workspace:*",
     "ai": "6.0.219",

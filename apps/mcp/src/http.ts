@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   loadConfig,
   ConfigError,
@@ -17,17 +16,16 @@ import { buildPlantbaseServer, TOOL_NAMES } from './plantbase-server.js';
 //   http.ts (HTTP)   →  a szerver a NETEN fut, a host CSATLAKOZIK hozzá. Bárki, URL-lel.
 //
 // A `plantbase-server.ts` egyetlen sorát sem kellett hozzányúlni. Ez az MCP lényege: a
-// képességek (toolok) és a szállítás külön rétegek.
+// képességek (toolok) és a szállítás külön rétegek. A Mastra `MCPServer` mindkét transportot
+// maga adja: `startStdio()` és `startHTTP()`.
 //
-// STATELESS MÓD: kérésenként ÚJ szervert és transportot építünk (`sessionIdGenerator: undefined`).
-// Több példány mögött (Railway skálázás) így nincs ragadós munkamenet, amit egy másik konténer
-// nem ismerne. Cserébe a szerver nem tud a kliens felé magától üzenni — nekünk ez nem hiányzik.
+// SERVERLESS (stateless) MÓD: kérésenként ÚJ szervert építünk, munkamenet nélkül. Több példány
+// mögött (Railway skálázás) így nincs ragadós session, amit egy másik konténer nem ismerne.
 //
 // BIZTONSÁG — amit tudni kell erről a végpontról:
 //   • CAPABILITY URL: ha az MCP_PUBLIC_TOKEN be van állítva, a token az ÚTVONAL része
 //     (/mcp/<token>). A Claude connector-felületén nem lehet saját fejlécet megadni — vagy OAuth,
 //     vagy semmi —, ezért a titok az URL-be kerül. Ez nem OAuth: aki látja a linket, hívhatja.
-//     Kurzusra pont jó (kiosztod, óra után törlöd), éles termékhez OAuth kell.
 //   • Az ask_plantbase MODELLT HÍV, tehát minden hívás a mi API-kulcsunkat költi. Ezért van
 //     rate limit, és ezért kell a tokent forgatni, ha kikerül.
 //   • A DB felé minden változatlanul read-only (szerepkör + SELECT-guard + read-only tranzakció).
@@ -45,22 +43,19 @@ function requestPath(): string {
   return publicToken === '' ? '/mcp' : `/mcp/${publicToken}`;
 }
 
-/** Egy MCP-kérés kiszolgálása: friss szerver + friss transport, majd mindkettő eldobva. */
+/** Egy MCP-kérés kiszolgálása: friss szerver, majd eldobva (serverless/stateless mód). */
 async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   const server = buildPlantbaseServer();
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless
-  });
-
-  // A kérés végén takarítunk: a lezárás sorrendje számít (előbb a transport, aztán a szerver).
-  res.on('close', () => {
-    void transport.close();
-    void server.close();
-  });
+  res.on('close', () => void server.close());
 
   try {
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    await server.startHTTP({
+      url: new URL(req.url, `http://${req.headers.host ?? 'localhost'}`),
+      httpPath: requestPath(),
+      req,
+      res,
+      options: { serverless: true },
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`plantbase-mcp-http: kérés-hiba — ${message}\n`);
@@ -92,7 +87,12 @@ function main(): void {
   app.use(
     cors({
       exposedHeaders: ['mcp-session-id', 'mcp-protocol-version'],
-      allowedHeaders: ['content-type', 'mcp-session-id', 'mcp-protocol-version', 'accept'],
+      allowedHeaders: [
+        'content-type',
+        'mcp-session-id',
+        'mcp-protocol-version',
+        'accept',
+      ],
     }),
   );
   app.use(
@@ -126,7 +126,9 @@ function main(): void {
   // Foglalt port / jogosultsági hiba: hangosan bukjunk el, ne csendben (a Railway a nem-nulla
   // kilépési kódból tudja, hogy a deploy elszállt).
   httpServer.on('error', (error: Error) => {
-    process.stderr.write(`plantbase-mcp-http: nem indult el — ${error.message}\n`);
+    process.stderr.write(
+      `plantbase-mcp-http: nem indult el — ${error.message}\n`,
+    );
     process.exit(1);
   });
 

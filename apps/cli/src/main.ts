@@ -1,25 +1,50 @@
 import 'dotenv/config';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { Command } from 'commander';
 import {
-  askAgent,
-  askIngestAgent,
+  mastra,
   loadConfig,
   ConfigError,
   closeReadOnlyPool,
   closeReadWritePool,
-  setWatchLog,
 } from '@plantbase/core';
 import { runInteractive } from './interactive.js';
+import { streamAgentAnswer } from './stream-answer.js';
 
-// plantbase ask "<kérdés>"   -> egyszeri válasz (élő színes trace + logs/<ts>.json)
-// plantbase ask              -> interaktív mód (beszélgetés-memóriával, exit-ig)
-// plantbase ask --quiet ...  -> nincs élő trace (csak a válasz), a JSON nyom akkor is elkészül
+// cli/main.ts — a CLI belépési pont a MASTRA agentek fölé. Két parancs, két agent:
+//   plantbase ask     → 'plantbase-query'      (olvas: katalógus + tudásbázis)
+//   plantbase ingest  → 'plantbase-katalogus'  (ír: termékfelvétel/-frissítés)
+//
+// MI VÁLTOZOTT A MASTRÁVAL:
+//   • Nincs saját agent-loop és nincs saját színes trace. A válasz STREAMEL (textStream),
+//     a „mit csinál" pedig a Mastra loggeré és a Studióé (`pnpm mastra:dev`).
+//   • Nincs kézzel átadogatott üzenet-előzmény: a beszélgetés-memória a Mastra Memory,
+//     amit a `memory: { thread, resource }` opció kapcsol be. A thread a beszélgetés,
+//     a resource a felhasználó — a CLI-ben ez fixen `cli-user`.
+//   • A régi `--quiet` KIKERÜLT: az egyetlen dolga az volt, hogy elnémítsa a MI trace-ünket,
+//     ami már nem létezik. Helyette `--thread <id>` jött, mert a Memory korában ez az,
+//     amire a CLI-nek tényleg szüksége van: egy korábbi beszélgetés folytatása.
+
+/** Egy felhasználó = egy resource. A CLI-nek egy „gépnél ülő ember" a modellje. */
+const CLI_RESOURCE = 'cli-user';
 
 const program = new Command();
 
 interface AskOptions {
-  quiet: boolean;
+  thread?: string;
+}
+
+/** Fail-fast: a hiányzó kulcs/DB-konfigurációt azonnal, érthetően jelezzük. */
+function ensureConfig(): void {
+  try {
+    loadConfig();
+  } catch (error: unknown) {
+    if (error instanceof ConfigError) {
+      console.error(`plantbase: ${error.message}`);
+      process.exit(1);
+    }
+    throw error;
+  }
 }
 
 program
@@ -34,35 +59,29 @@ program
   .description('Egyszeri kérdés, vagy argumentum nélkül interaktív mód.')
   .argument('[kérdés...]', 'a feltett kérdés (idézőjelben vagy szavanként)')
   .option(
-    '--quiet',
-    'ne írja ki az élő trace-t (a JSON nyom akkor is elkészül)',
-    false,
+    '--thread <id>',
+    'egy korábbi beszélgetés folytatása (Mastra Memory thread-azonosító)',
   )
   .action(async (words: string[], options: AskOptions) => {
-    // Fail-fast: a kulcs/konfiguráció hiányát azonnal, érthetően jelezzük.
-    try {
-      loadConfig();
-    } catch (error: unknown) {
-      if (error instanceof ConfigError) {
-        console.error(`plantbase: ${error.message}`);
-        process.exit(1);
-      }
-      throw error;
-    }
-
-    // A folyamatos "control room" log bekapcsolása: külön terminálban `tail -f logs/agent.log`.
-    setWatchLog(join(process.cwd(), 'logs', 'agent.log'));
-
+    ensureConfig();
+    const agent = mastra.getAgentById('plantbase-query');
+    const threadId = options.thread ?? randomUUID();
     const question = words.join(' ').trim();
     try {
       if (question === '') {
-        await runInteractive(options.quiet);
+        await runInteractive({
+          agent,
+          threadId,
+          resourceId: CLI_RESOURCE,
+          banner:
+            'Plantbase interaktív mód — kilépés: "exit" vagy Ctrl-D.\n' +
+            `beszélgetés (thread): ${threadId}`,
+        });
       } else {
-        const result = await askAgent(question, { print: !options.quiet });
-        // Csendes módban a trace nem ír semmit → a választ itt írjuk ki.
-        if (options.quiet) {
-          console.log(result.answer);
-        }
+        await streamAgentAnswer(agent, question, {
+          thread: threadId,
+          resource: CLI_RESOURCE,
+        });
       }
     } finally {
       // A read-only pg-pool életben tartja az event loopot — zárjuk, hogy tisztán kilépjünk.
@@ -78,39 +97,29 @@ program
   )
   .argument('[utasítás...]', 'pl. "állítsd a Kentia pálma árát 17900-ra"')
   .option(
-    '--quiet',
-    'ne írja ki az élő trace-t (a JSON nyom akkor is elkészül)',
-    false,
+    '--thread <id>',
+    'egy korábbi beszélgetés folytatása (Mastra Memory thread-azonosító)',
   )
   .action(async (words: string[], options: AskOptions) => {
-    try {
-      loadConfig();
-    } catch (error: unknown) {
-      if (error instanceof ConfigError) {
-        console.error(`plantbase: ${error.message}`);
-        process.exit(1);
-      }
-      throw error;
-    }
-
-    setWatchLog(join(process.cwd(), 'logs', 'agent.log'));
-
+    ensureConfig();
+    const agent = mastra.getAgentById('plantbase-katalogus');
+    const threadId = options.thread ?? randomUUID();
     const instruction = words.join(' ').trim();
     try {
       if (instruction === '') {
         await runInteractive({
-          quiet: options.quiet,
-          ask: askIngestAgent,
+          agent,
+          threadId,
+          resourceId: CLI_RESOURCE,
           banner:
-            'Plantbase katalógus-kezelő (ingest) mód — írási művelet! Kilépés: "exit" vagy Ctrl-D.',
+            'Plantbase katalógus-kezelő (ingest) mód — írási művelet! Kilépés: "exit" vagy Ctrl-D.\n' +
+            `beszélgetés (thread): ${threadId}`,
         });
       } else {
-        const result = await askIngestAgent(instruction, {
-          print: !options.quiet,
+        await streamAgentAnswer(agent, instruction, {
+          thread: threadId,
+          resource: CLI_RESOURCE,
         });
-        if (options.quiet) {
-          process.stdout.write(`${result.answer}\n`);
-        }
       }
     } finally {
       // Az ingest-agent olvas (read-only) ÉS ír (read-write) — mindkét poolt zárjuk.

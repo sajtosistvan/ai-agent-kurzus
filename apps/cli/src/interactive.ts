@@ -1,41 +1,33 @@
 import { createInterface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
-import { askAgent, type AskResult, type Message } from '@plantbase/core';
+import type { Agent } from '@mastra/core/agent';
+import { streamAgentAnswer } from './stream-answer.js';
 
-// Interaktív readline-hurok BESZÉLGETÉS-MEMÓRIÁVAL: a teljes üzenet-tömböt körről körre
-// továbbvisszük, így a követő kérdés ismeri az előzményt. A sorokat sorosan dolgozzuk fel
-// (egyszerre egy hívás fut), így csővezetett bemenetnél sem fut össze két hívás.
-// Az `ask` paraméterrel ugyanez a hurok szolgálja ki a query- és az ingest-agentet is.
+// interactive.ts — readline-hurok EGY Mastra thread fölött. A sorokat sorosan dolgozzuk fel
+// (egyszerre egy agent-futás), így csővezetett bemenetnél sem fut össze két hívás.
+//
+// AMI ELTŰNT: a kézzel továbbvitt `history: Message[]`. A beszélgetés-memória a Mastra
+// Memoryé — minden kör UGYANAZT a `thread`-et kapja, és az előzményt a keretrendszer tölti
+// be a modellnek. Ugyanez a hurok szolgálja ki a query- és a katalógus-agentet is: csak
+// az `agent` paraméter más.
 
 const EXIT_WORDS = new Set(['exit', 'quit', 'kilép']);
 
-type AskFn = (
-  input: string,
-  options: { history?: Message[]; print?: boolean },
-) => Promise<AskResult>;
-
 export interface InteractiveOptions {
-  quiet: boolean;
-  ask?: AskFn;
-  banner?: string;
+  agent: Agent;
+  /** A beszélgetés azonosítója — végig ugyanaz, ez adja a memóriát. */
+  threadId: string;
+  /** Ki beszél (Mastra Memory resource). */
+  resourceId: string;
+  banner: string;
 }
 
-export function runInteractive(
-  quietOrOptions: boolean | InteractiveOptions,
-): Promise<void> {
-  const opts: InteractiveOptions =
-    typeof quietOrOptions === 'boolean'
-      ? { quiet: quietOrOptions }
-      : quietOrOptions;
-  const quiet = opts.quiet;
-  const ask: AskFn = opts.ask ?? askAgent;
-  const banner =
-    opts.banner ?? 'Plantbase interaktív mód — kilépés: "exit" vagy Ctrl-D.';
+export function runInteractive(options: InteractiveOptions): Promise<void> {
+  const { agent, threadId, resourceId, banner } = options;
   const rl = createInterface({ input: stdin, output: stdout, prompt: '> ' });
   const queue: string[] = [];
   let processing = false;
   let closed = false;
-  let history: Message[] = []; // ← a beszélgetés memóriája
 
   async function drain(): Promise<void> {
     if (processing) {
@@ -49,11 +41,10 @@ export function runInteractive(
         break;
       }
       try {
-        const result = await ask(input, { history, print: !quiet });
-        history = result.messages; // ← továbbvisszük az előzményt a következő körre
-        if (quiet) {
-          stdout.write(`${result.answer}\n`);
-        }
+        await streamAgentAnswer(agent, input, {
+          thread: threadId,
+          resource: resourceId,
+        });
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         stdout.write(`hiba: ${message}\n`);
