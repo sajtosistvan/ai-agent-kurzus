@@ -52,3 +52,4 @@ A régi státuszát „Felváltva"-ra állítjuk, hogy a napló idővonala olvas
 | [0004](./0004-sajat-trace-helyett-mastra-observability.md) | A saját `Trace` és a `ToolOutcome` side-channel megszüntetése | Elfogadva |
 | [0005](./0005-kezi-orchestrator-helyett-mastra-sub-agent.md) | A kézi orchestrator felváltása Mastra sub-agent delegálással | Elfogadva |
 | [0006](./0006-tarolas-postgresen-marad.md) | A Mastra tárolása Postgresen marad (PostgresStore + PgVector) | Elfogadva |
+| [0007](./0007-red-team-promptfoo-es-az-ugyfel-tool-szerepkapuja.md) | Red team a promptfoo-val, és az `ugyfel_lekerdezes` szerepkör-kapuja | Elfogadva |
