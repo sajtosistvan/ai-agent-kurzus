@@ -20,13 +20,17 @@
     "mcp:smoke": "tsx --conditions=@plantbase/source apps/mcp/src/smoke.ts",
     "mcp:mcpb": "npx -y @anthropic-ai/mcpb@2.1.2 pack apps/mcp/mcpb dist/plantbase.mcpb",
     "web": "nx dev web",
+    "mastra:dev": "pnpm --filter @plantbase/core exec mastra dev --dir src/mastra --env ../../.env",
+    "mastra:build": "pnpm --filter @plantbase/core exec mastra build --dir src/mastra",
     "db:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=packages/db/prisma/schema.prisma",
     "db:reset": "prisma migrate reset --schema=packages/db/prisma/schema.prisma",
     "db:seed": "prisma db seed",
     "knowledge:ingest": "tsx --conditions=@plantbase/source apps/cli/src/ingest-knowledge.ts",
     "db:studio": "prisma studio --schema=packages/db/prisma/schema.prisma",
-    "demo": "bash scripts/demo.sh"
+    "demo": "bash scripts/demo.sh",
+    "redteam:owasp": "CI=true npx -y promptfoo@latest redteam run --config redteam/owasp-demo.yaml --env-file .env --output tmp/owasp-demo.json --force",
+    "redteam:report": "npx -y promptfoo@latest redteam report"
   },
   "private": true,
   "prisma": {
@@ -54,6 +58,7 @@
     "eslint-config-prettier": "^10.0.0",
     "jiti": "2.4.2",
     "jsonc-eslint-parser": "^2.1.0",
+    "mastra": "^1.21.0",
     "nx": "23.0.1",
     "playwright": "^1.61.1",
     "prettier": "^3.8.1",
