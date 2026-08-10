@@ -30,11 +30,32 @@ const PROFIL_SABLON = `# Ügyfél-profil
  * választja szét (`memory: { thread, resource }` a stream/generate hívásban), ezért egy
  * példány elég, és a Studio-ban is egy helyen látszik minden szál.
  */
+// ============================================================================
+// A SZEMANTIKUS FELIDÉZÉS EGY CSOMAGBAN ÁLL VAGY BUKIK
+//
+// Három dolog kell hozzá, és MINDHÁRMAT a konstruktor kéri, azonnal: vektortár (PgVector →
+// DATABASE_URL), beágyazó modell (OPENAI_API_KEY) és maga a `semanticRecall` beállítás.
+// Ha bármelyik hiányzik, a `new Memory(...)` DOB — és mivel ez a modul-szinten fut, ilyenkor
+// már a `@plantbase/core` puszta importja is elszáll. A CI-ben ettől bukott a `server:test`
+// és az `mcp:test`, holott azok csak egy tiszta segédfüggvényt importáltak (clipTitle,
+// ensureReadOnlySelect) — a barrel viszont behúzta az egész tárolóréteget.
+//
+// Ezért a három beállítás EGYÜTT kapcsol be vagy ki. DB/kulcs nélkül a memória továbbra is
+// működik `lastMessages` + `workingMemory` szinten; csak a régebbi üzenetek vektoros
+// felidézése marad el. Ez a helyes lefokozás: a hiányzó opcionális képesség nem döntheti
+// el az egész csomag importját.
+// ============================================================================
+const szemantikusFelidezes = plantbaseVektortar
+  ? {
+      vector: plantbaseVektortar,
+      // A beágyazó modell UGYANAZ, amivel a tudásbázis készül (OPENAI_API_KEY, 1536 dimenzió).
+      embedder: 'openai/text-embedding-3-small' as const,
+    }
+  : {};
+
 export const plantbaseMemoria = new Memory({
   ...(plantbaseTarolo ? { storage: plantbaseTarolo } : {}),
-  ...(plantbaseVektortar ? { vector: plantbaseVektortar } : {}),
-  // A beágyazó modell UGYANAZ, amivel a tudásbázis készül (OPENAI_API_KEY, 1536 dimenzió).
-  embedder: 'openai/text-embedding-3-small',
+  ...szemantikusFelidezes,
   options: {
     lastMessages: 20,
     // A felidézés SZÁL-hatókörű, nem erőforrás-szintű. `resource` hatókörrel a Mastra MÁS
@@ -44,11 +65,7 @@ export const plantbaseMemoria = new Memory({
     // Ettől a webes chat MÁSODIK köre elszállt, miközben a CLI és a friss szálak működtek.
     // Az ára: egy új beszélgetés nem idézi fel a korábbi beszélgetések részleteit — a tartós
     // tudás a workingMemory profilban marad, az MARADT resource-hatókörű.
-    // CSAK akkor, ha van vektortár. A `vector` fentebb feltételes (nincs DATABASE_URL → nincs
-    // PgVector), a semanticRecall viszont nem volt az — így a `new Memory(...)` dobott
-    // („Semantic recall requires a vector store to be configured"), és mivel ez MODUL-SZINTEN
-    // fut, már a `@plantbase/core` puszta importja is elszállt DB nélkül. A CI-ben ettől
-    // bukott a `server:test` és az `mcp:test`, holott csak egy tiszta segédfüggvényt importáltak.
+    // Csak akkor, ha a fenti csomag (vektortár + beágyazó) is bekapcsolt — lásd a blokk-kommentet.
     ...(plantbaseVektortar
       ? { semanticRecall: { topK: 3, messageRange: 2, scope: 'thread' as const } }
       : {}),
