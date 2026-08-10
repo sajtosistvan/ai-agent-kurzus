@@ -67,3 +67,40 @@ difficulty/készlet/budget kemény korlát), `savePackage` (mentés előtt ÚJRA
 + `package_items`, FK a `customers`-re), `cancelPackage` (a lemondás rögzítése tool-hívásként).
 A stream a hop-okat `data-agent`/`data-tool`/`data-package` partokként viszi ki a web UI-nak
 (agent-badge, routing-chip, összesítő kártya) — `off` módban ilyen part nem is keletkezik.
+
+> **Történeti fejezet.** A fenti kézi orchestrátort a Mastra sub-agent delegálása váltja fel,
+> az `ORCHESTRATION_MODE` megszűnik — lásd [ADR-0005](./adr/0005-kezi-orchestrator-helyett-mastra-sub-agent.md).
+> A leírás azért marad itt, mert a tananyag ezt a fejlődést követi.
+
+## Mastra — a keretrendszeres felállás
+
+A 2026-08-05-i refaktor óta a `packages/core` a **Mastra** keretrendszerre épül
+([ADR-0003](./adr/0003-mastra-keretrendszer-bevezetese.md)). A kézi loop, a saját `Trace` és a
+`ToolOutcome` side-channel megszűnt ([ADR-0004](./adr/0004-sajat-trace-helyett-mastra-observability.md)),
+a tárolás Postgresen maradt ([ADR-0006](./adr/0006-tarolas-postgresen-marad.md)).
+
+```
+packages/core/src/mastra/index.ts   ← EGY Mastra példány fogja össze az egészet
+   │
+   ├── agents/        query-agent ─────────┐   csomag-agent ──(sub-agent)──▶ info-agent
+   │                  katalógus-szerkesztő │
+   │                                       │
+   ├── tools/         katalogus_sql (READ ONLY, sql-guard, plantbase_ro)  ◀── NFR1
+   │                  termek_mentes (read-write pool, Zod)
+   │                  webshop_feed, csomag_ellenorzes, csomag_mentes
+   │                  tudasbazis_kereses ──▶ rag/  (PgVector)
+   │
+   ├── workflows/     csomag-folyamat (createStep + suspend/resume = HITL megerősítés)
+   ├── processors/    input/output guardrail (PII, RBAC)
+   └── scorers/       magyar-valasz · katalogus-fedettseg · rag-hivatkozas
+                      csak-olvaso-ut (NFR1) · hasznossag-judge (Haiku)
+   │
+   ▼ storage / observability
+PostgresStore (memória, trace, score) + PgVector (embedding) — UGYANAZ a Postgres,
+PinoLogger (strukturált napló) + Mastra Studio (trace-fa, tool be/kimenet, scorek)
+```
+
+Amit ez a felállás cserébe elvesz: a loop mechanikája **nem látszik soronként a kódban**.
+Ami eddig a saját `agent-loop.ts`-ben volt olvasható (prompt → tool-hívás → tool-eredmény →
+újra modell), azt ezután a Studio trace-fáján kell megnézni. Ez tudatosan vállalt ár —
+az indoklás az ADR-0003 „Következmények" szakaszában.

@@ -34,7 +34,7 @@ A megfelelő mód futtatása ELŐTT az agent ellenőrzi/felhozza az infrát Bash
 # Docker/OrbStack: ha a daemon nem fut → `open -a OrbStack`, majd várni `docker info`-ra.
 docker start plantbase-pg 2>/dev/null || docker compose up -d
 # szerver ROUTER módban + web, háttérben; várni a 3001 és 4200 portra (curl 4200 → 200)
-ORCHESTRATION_MODE=router pnpm server > logs/flow-test-server.log 2>&1 &
+pnpm server > logs/flow-test-server.log 2>&1 &
 pnpm web > logs/web.log 2>&1 &
 ```
 Ha a lépés hibázik (pl. leállt daemon), az agent elindítja OrbStack-et és újrapróbálja — a

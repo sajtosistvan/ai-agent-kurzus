@@ -69,3 +69,6 @@ vitest.config.*.timestamp*
 
 # Az MCP publikus connector-URL-je (tokent tartalmaz)
 mcp-connector.local.txt
+
+# Mastra CLI build/dev kimenete (mastra dev / mastra build)
+.mastra/
