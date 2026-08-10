@@ -44,7 +44,14 @@ export const plantbaseMemoria = new Memory({
     // Ettől a webes chat MÁSODIK köre elszállt, miközben a CLI és a friss szálak működtek.
     // Az ára: egy új beszélgetés nem idézi fel a korábbi beszélgetések részleteit — a tartós
     // tudás a workingMemory profilban marad, az MARADT resource-hatókörű.
-    semanticRecall: { topK: 3, messageRange: 2, scope: 'thread' },
+    // CSAK akkor, ha van vektortár. A `vector` fentebb feltételes (nincs DATABASE_URL → nincs
+    // PgVector), a semanticRecall viszont nem volt az — így a `new Memory(...)` dobott
+    // („Semantic recall requires a vector store to be configured"), és mivel ez MODUL-SZINTEN
+    // fut, már a `@plantbase/core` puszta importja is elszállt DB nélkül. A CI-ben ettől
+    // bukott a `server:test` és az `mcp:test`, holott csak egy tiszta segédfüggvényt importáltak.
+    ...(plantbaseVektortar
+      ? { semanticRecall: { topK: 3, messageRange: 2, scope: 'thread' as const } }
+      : {}),
     workingMemory: { enabled: true, scope: 'resource', template: PROFIL_SABLON },
   },
 });
