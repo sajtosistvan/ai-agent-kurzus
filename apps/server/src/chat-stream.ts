@@ -1,82 +1,46 @@
-import type { ModelMessage, UIMessage, UIMessageStreamWriter } from 'ai';
-import {
-  askAgent,
-  getOrchestrationMode,
-  runOrchestrated,
-  type OrchestratorEvent,
-} from '@plantbase/core';
+import type { UIMessageStreamWriter } from 'ai';
+import { toAISdkStream } from '@mastra/ai-sdk';
+import { mastra } from '@plantbase/core';
+import { createDataPartWriter } from './ui-data-parts.js';
+import { WEB_RESOURCE } from './threads.js';
 
-// chat-stream.ts — a PROTOKOLL-TRANSZFORMÁCIÓ egyetlen fájlba zárva: a core callback-jei
-// (onTextDelta, OrchestratorEvent) → AI SDK UI message stream chunkok. A main.ts handler
-// vékony marad.
+// chat-stream.ts — EGY belépési pont a chathez: a supervisor agent.
 //
-// KÉT ÚT:
-//   off  → a MAI kódút, bájtra pontosan: askAgent + writer.merge(result.toUIMessageStream()).
-//   router/delegate → runOrchestrated; a szöveg kézzel írt text-chunkokként megy ki, a
-//     tool-/agent-/csomag-események data-* partokként. Minden data-part a mentett assistant
-//     üzenet része lesz (onFinish menti), így újratöltéskor a badge/chip/kártya visszarajzolódik;
-//     a modell-előzményből a stripDataParts (threads.ts) szűri ki őket.
+// AMI MEGSZŰNT: az `ORCHESTRATION_MODE` (off/router/delegate) kapcsoló és a hozzá tartozó
+// két kézzel írt handover-út. A Mastrában az al-agent-delegálás a keretrendszer dolga
+// (a supervisor al-agentként hívja a query-, katalógus- és csomag-agentet), ezért nincs
+// mit kapcsolgatni: EGY út van.
+//
+// STREAM: a Mastra futás kimenetét a `toAISdkStream(..., { from: 'agent', version: 'v6' })`
+// fordítja AI SDK UI-üzenetfolyammá (a repo `ai@6`-on van) — ebből jön a szöveg és a
+// `tool-<név>` rész. A Plantbase saját chipjeit (data-agent/data-tool/data-package) az
+// `onChunk` mellékágon írjuk ki, lásd ui-data-parts.ts.
+//
+// ELŐZMÉNY: nincs kézi `history` — a `memory: { thread, resource }` opció miatt a Mastra
+// tölti be a thread korábbi üzeneteit, és menti is az újakat.
+
+const ROOT_AGENT_ID = 'plantbase-supervisor';
 
 export async function streamChat(args: {
   question: string;
-  history: ModelMessage[];
-  uiHistory: UIMessage[];
+  threadId: string;
+  /** Új thread esetén ezzel a címmel jön létre; meglévőnél nincs hatása. */
+  threadTitle: string;
   writer: UIMessageStreamWriter;
 }): Promise<void> {
-  const mode = getOrchestrationMode();
-  if (mode === 'off') {
-    // VÁLTOZATLAN viselkedés — ez a sor korábban a main.ts-ben élt.
-    await askAgent(args.question, {
-      print: true,
-      history: args.history,
-      onStream: (result) => args.writer.merge(result.toUIMessageStream()),
-    });
-    return;
-  }
+  const agent = mastra.getAgentById(ROOT_AGENT_ID);
+  const onChunk = createDataPartWriter({
+    writer: args.writer,
+    rootAgentId: ROOT_AGENT_ID,
+  });
 
-  const { writer } = args;
-  writer.write({ type: 'start' });
+  const result = await agent.stream(args.question, {
+    memory: {
+      thread: { id: args.threadId, title: args.threadTitle },
+      resource: WEB_RESOURCE,
+    },
+    onChunk: (chunk) => onChunk(chunk),
+  });
 
-  // Szöveg-blokk könyvelés: data-part érkezésekor lezárjuk az épp nyitott text-blokkot,
-  // így a kliens időrendben látja: badge → chipek → szöveg → (újabb chipek) → szöveg.
-  let textCounter = 0;
-  let openTextId: string | null = null;
-  const closeText = (): void => {
-    if (openTextId !== null) {
-      writer.write({ type: 'text-end', id: openTextId });
-      openTextId = null;
-    }
-  };
-  const onTextDelta = (delta: string): void => {
-    if (openTextId === null) {
-      textCounter += 1;
-      openTextId = `txt-${textCounter}`;
-      writer.write({ type: 'text-start', id: openTextId });
-    }
-    writer.write({ type: 'text-delta', id: openTextId, delta });
-  };
-  const onEvent = (event: OrchestratorEvent): void => {
-    closeText();
-    if (event.type === 'agent') {
-      writer.write({ type: 'data-agent', data: { agent: event.agent } });
-    } else if (event.type === 'tool') {
-      writer.write({ type: 'data-tool', data: event.data });
-    } else {
-      writer.write({ type: 'data-package', data: event.plan });
-    }
-  };
-
-  try {
-    await runOrchestrated(args.question, {
-      mode,
-      history: args.history,
-      uiHistory: args.uiHistory,
-      print: true,
-      onTextDelta,
-      onEvent,
-    });
-  } finally {
-    closeText();
-    writer.write({ type: 'finish' });
-  }
+  args.writer.merge(toAISdkStream(result, { from: 'agent', version: 'v6' }));
 }

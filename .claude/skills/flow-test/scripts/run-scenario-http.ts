@@ -5,7 +5,7 @@ import { DONE_MARKER, loadScenario, nextUserMessage, type Turn } from './persona
 
 // run-scenario-http.ts — HTTP driver: fetch a /api/chat-ra, a stream feldolgozása
 // readUIMessageStream-mel. Gyors, fejlesztés közbeni iterációra. A szervernek a TESZTELT
-// ORCHESTRATION_MODE-dal kell futnia; a --mode flag itt csak CÍMKE a loghoz.
+// A --mode flag itt már csak CÍMKE a loghoz (az ORCHESTRATION_MODE megszűnt a Mastra-átállással).
 
 const BASE = process.env['FLOW_TEST_API'] ?? 'http://localhost:3001';
 
@@ -52,7 +52,7 @@ async function sendMessage(threadId: string | null, text: string): Promise<UIMes
     });
   } catch {
     throw new Error(
-      `Nem érem el a szervert (${BASE}) — fut a \`ORCHESTRATION_MODE=<mód> pnpm server\`?`,
+      `Nem érem el a szervert (${BASE}) — fut a \`pnpm server\`?`,
     );
   }
   if (!response.ok || !response.body) {

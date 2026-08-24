@@ -112,18 +112,22 @@ pnpm cli ask "mutass 3 pet-safe, alacsony fényigényű növényt raktáron, 500
 # Interaktív mód (több kérdés, 'exit'-ig)
 pnpm cli ask
 
-# Csendes mód: csak a végső válasz, élő trace nélkül (a JSON nyom akkor is elkészül)
-pnpm cli ask --quiet "milyen pozsgásokat ajánlasz?"
+# Korábbi beszélgetés folytatása (Mastra Memory thread-azonosító)
+pnpm cli ask --thread 6f1c… "és ebből melyik pet-safe?"
 
 # Súgó
 pnpm cli --help
 ```
 
-Minden interakció **kétféleképpen átlátható**:
+A válasz **streamelve** érkezik a terminálba. Ami mögötte történik (mit küldtünk ki, mit hívott
+a modell, mit adott vissza a tool), az a **Mastra observability** dolga:
 
-- **Élő színes trace** a konzolon — lépésről lépésre látszik a teljes mechanika: a kérés paraméterei (model, max_tokens, tools, system, messages), a modell generálta SQL, a tool-eredmény és a végső válasz. (`--quiet`-tel kikapcsolható.)
-- **Pretty JSON nyom** minden futásról: `logs/<timestamp>.json` (system prompt, üzenetek, **generált SQL**, eredmény, válasz, token-felhasználás).
-- **Folyamatos „control room" log** a `logs/agent.log`-ban — külön terminálban `tail -f logs/agent.log`-gal követhető, a `--quiet`-tól függetlenül.
+- **Mastra Studio**: `pnpm mastra:dev` — agentek, toolok, futások és trace-ek böngészőben.
+- **Mastra logger** (PinoLogger) a konzolon — a szintje a Mastra-példányban állítható.
+- A trace-ek ugyanabba a Postgresbe íródnak (`mastra_*` táblák), mint a katalógus.
+
+> A korábbi kézzel írt színes trace és a `logs/<timestamp>.json` nyom megszűnt — ezt most a
+> keretrendszer adja. Emiatt a `--quiet` kapcsolónak sem maradt dolga: helyette `--thread` van.
 
 A modell `.env`-ből állítható (`ANTHROPIC_MODEL`); költségérzékeny demóhoz pl. `claude-haiku-4-5`.
 
@@ -143,6 +147,7 @@ A modell `.env`-ből állítható (`ANTHROPIC_MODEL`); költségérzékeny demó
 | `pnpm format`             | Prettier                                         |
 | `pnpm server`             | Express API dev-módban (port 3001)               |
 | `pnpm web`                | Vite dev-szerver a chat UI-hoz (port 4200)       |
+| `pnpm mastra:dev`         | Mastra Studio (agentek, toolok, trace-ek)        |
 | `pnpm knowledge:ingest`   | tudásbázis-cikkek darabolása + vektorizálása a knowledge_chunks táblába |
 
 ---

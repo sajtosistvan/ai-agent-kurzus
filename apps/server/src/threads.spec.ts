@@ -1,4 +1,8 @@
-import { clipTitle, rowToUIMessage, stripDataParts, dropTrailingUserRow } from './threads.js';
+import { clipTitle } from './threads.js';
+
+// A korábbi `rowToUIMessage` / `stripDataParts` / `dropTrailingUserRow` tesztek megszűntek:
+// azokat a függvényeket a Mastra Memory váltotta ki (ő tárolja és adja vissza az előzményt).
+// Ami a mienk maradt, az a thread-cím formázása — ezt teszteljük.
 
 describe('clipTitle', () => {
   it('rövid szöveget változatlanul hagy', () => {
@@ -11,43 +15,5 @@ describe('clipTitle', () => {
   });
   it('sortöréseket szóközzé lapít', () => {
     expect(clipTitle('első\nmásodik')).toBe('első második');
-  });
-});
-
-describe('rowToUIMessage', () => {
-  it('DB-sorból UIMessage-et épít', () => {
-    const msg = rowToUIMessage({ id: 7, role: 'assistant', parts: [{ type: 'text', text: 'szia' }] });
-    expect(msg).toEqual({ id: '7', role: 'assistant', parts: [{ type: 'text', text: 'szia' }] });
-  });
-});
-
-describe('stripDataParts', () => {
-  it('kiszűri a data-* partokat, a többit megtartja', () => {
-    const [m] = stripDataParts([
-      { id: '1', role: 'assistant', parts: [
-        { type: 'data-thread', data: { threadId: 'x' } },
-        { type: 'text', text: 'szia' },
-      ] } as never,
-    ]);
-    expect(m.parts).toEqual([{ type: 'text', text: 'szia' }]);
-  });
-});
-
-describe('dropTrailingUserRow', () => {
-  it('eldobja a válasz nélkül maradt záró user-sort', () => {
-    const rows = [
-      { role: 'user' },
-      { role: 'assistant' },
-      { role: 'user' }, // korábbi hibás futás maradéka
-    ];
-    expect(dropTrailingUserRow(rows)).toEqual([{ role: 'user' }, { role: 'assistant' }]);
-  });
-  it('assistant-ra végződő előzményt változatlanul hagy', () => {
-    const rows = [{ role: 'user' }, { role: 'assistant' }];
-    expect(dropTrailingUserRow(rows)).toEqual(rows);
-    expect(dropTrailingUserRow(rows)).toBe(rows); // nincs fölösleges másolat
-  });
-  it('üres listát üresen ad vissza', () => {
-    expect(dropTrailingUserRow([])).toEqual([]);
   });
 });

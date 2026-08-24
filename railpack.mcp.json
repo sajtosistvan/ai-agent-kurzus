@@ -1,0 +1,10 @@
+{
+  "steps": {
+    "build": {
+      "commands": ["echo 'nincs build lépés — az MCP-szerver forrásból fut tsx-szel'"]
+    }
+  },
+  "deploy": {
+    "startCommand": "node_modules/.bin/tsx --conditions=@plantbase/source apps/mcp/src/http.ts"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@plantbase/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "nx": {
+    "name": "mcp"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.55.0",
+    "@mastra/loggers": "^1.2.0",
+    "@mastra/mcp": "^1.15.0",
+    "@plantbase/core": "workspace:*",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0"
+  }
+}

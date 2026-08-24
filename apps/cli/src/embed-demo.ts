@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
-import { embedBatch } from '@plantbase/core';
+import { beagyazKoteget } from '@plantbase/core';
 
 // embed-demo.ts — a dia-szemléltetőhöz: VALÓDI embeddingek + VALÓDI koszinusz-távolságok.
 // Futtatás: pnpm tsx --conditions=@plantbase/source apps/cli/src/embed-demo.ts
@@ -53,7 +53,7 @@ function cosineDistance(a: number[], b: number[]): number {
 }
 
 async function main(): Promise<void> {
-  const embeddings = await embedBatch(SENTENCES);
+  const embeddings = await beagyazKoteget(SENTENCES);
 
   const distances = SENTENCES.map((_, i) =>
     SENTENCES.map((_, j) =>

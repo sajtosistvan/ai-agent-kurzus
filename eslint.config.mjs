@@ -10,6 +10,9 @@ export default [
       '**/out-tsc',
       '**/vitest.config.*.timestamp*',
       '**/generated',
+      // A `mastra dev` / `mastra build` kimenete. Gitignore-olva van, de az ESLint flat
+      // config NEM olvassa a .gitignore-t — enélkül a bundle-t lintelné (több száz hamis hiba).
+      '**/.mastra',
     ],
   },
   {

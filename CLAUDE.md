@@ -21,14 +21,23 @@ pnpm nx build @plantbase/core
 pnpm nx test @plantbase/core
 
 # A single test file / test name (Vitest args after `--`)
-pnpm nx test @plantbase/core -- run src/lib/tools/sql-guard.spec.ts
+pnpm nx test @plantbase/core -- run src/mastra/tools/katalogus-sql/sql-guard.spec.ts
 pnpm nx test @plantbase/core -- -t "rejects non-SELECT"
 
 # Run the CLI in DEV (runs TypeScript source directly, no build — see source condition below)
 pnpm cli ask "mutass 3 pet-safe növényt raktáron, 5000 Ft alatt"
-pnpm cli ask                 # interactive query mode
+pnpm cli ask                 # interactive query mode (one Mastra Memory thread per session)
 pnpm cli ingest "..."        # catalog-editor agent (writes!); no args → interactive
-pnpm cli ask --quiet "..."   # only the final answer, no live trace
+pnpm cli ask --thread <id>   # continue an earlier conversation (Mastra Memory thread id)
+
+# Mastra Studio — the agent/tool/trace inspector (replaces the old hand-written live trace)
+pnpm mastra:dev              # `mastra dev --dir packages/core/src/mastra --env .env`
+pnpm mastra:build            # `mastra build --dir packages/core/src/mastra`
+
+# MCP server (stdio) — the Plantbase tools exposed to an EXTERNAL host (Claude Code/Desktop)
+pnpm mcp                     # runs the stdio server; a host normally spawns this, not you
+pnpm mcp:inspect             # MCP Inspector in the browser — test tools without a host
+
 
 # Database (Prisma, read-write connection)
 docker compose up -d         # Postgres on host port 5433 (NOT 5432)
@@ -42,45 +51,61 @@ First-time setup: `pnpm install` (postinstall runs `prisma generate`) → `cp .e
 
 ## Architecture
 
-Nx monorepo, three projects: **`apps/cli`** (`@plantbase/cli`, commander + readline entrypoint), **`packages/core`** (`@plantbase/core`, framework-agnostic agent logic), **`packages/db`** (`@plantbase/db`, Prisma schema/migrations/seed + generated client).
+Nx monorepo, three projects: **`apps/cli`** (`@plantbase/cli`, commander + readline entrypoint), **`packages/core`** (`@plantbase/core`, the Mastra instance and everything on it), **`packages/db`** (`@plantbase/db`, Prisma schema/migrations/seed + generated client). Plus the other entrypoints over the same core: **`apps/server`** (HTTP + streaming chat), **`apps/web`**, and **`apps/mcp`** (`@plantbase/mcp`, MCP stdio server — see `docs/mcp.md`).
 
-`packages/core` is **framework-agnostic**: it does not know its entrypoint (CLI/API/web). There is deliberately **no agent framework** so the mechanics stay legible.
+`packages/core` runs on the **Mastra** agent framework (ADR-0003). It used to have a hand-written agent loop, deliberately framework-free; that decision was reversed once the mechanics were taught and the maintenance cost of the home-grown loop, trace and orchestrator outweighed its teaching value. Read ADR-0003…0006 before changing the shape of this layer.
 
-### Two agents, one loop (`packages/core/src/lib/agents/`)
+### The Mastra instance (`packages/core/src/mastra/index.ts`)
 
-**One agent = prompt + tools + loop; every agent gets its own directory, shared code sits one level up.** The shared loop lives in **`agents/agent-loop.ts`** (`runAgentLoop`): Vercel AI SDK 6 `generateText` + `stopWhen: stepCountIs(n)`, with the transparent per-step trace wired via `prepareStep`/`onStepFinish` (see `trace.ts`; live console + `logs/<ts>.json` + `logs/agent.log`). The loop was originally hand-written over the raw Anthropic SDK; the SDK now runs the same prompt→tool-call→tool-result→repeat cycle. Each agent file is a thin definition (~40 lines): its prompt, its toolset, its limits.
+Everything hangs off **one** `Mastra` instance: agents, tools, workflows, scorers, storage, vector store, observability, logger. What is not registered there does not appear in Mastra Studio (`pnpm mastra:dev`).
 
-- **Query agent** — `askAgent` (`agents/query-agent/query-agent.ts`), prompt `buildQueryPrompt` (`agents/query-agent/query-prompt.ts`). NL → SQL → read-only `runSql` → Hungarian answer. Tools: `runSql`, `getClientPreferences`. In orchestrated modes it doubles as the **info-agent**.
-- **Ingest agent** — `askIngestAgent` (`agents/ingest-agent/ingest-agent.ts`), prompt `buildIngestPrompt` (`agents/ingest-agent/ingest-prompt.ts`). Conversationally edits the catalog. Tools: `fetchFeed` (live Shopify `products.json` from tropicalhome.hu / thesill.com), `runSql` (read current state), `upsertProduct` (the **only** in-app write path).
-- **Orchestrator agent** — `runOrchestrated` (`agents/orchestrator-agent/orchestrator-agent.ts`). Entry point of the server chat path in orchestrated modes: decides routing with the `routeTo` tool (every inter-agent signal is a tool call, never text parsing) and holds the **flow-lock** via `findLastFlowSignal` (reads structured `data-tool` parts, unit-tested). Handover variants: `router-handover.ts` (orchestrator relays `requestInfo` questions to the info-agent, visible for-loop, max 3 hops) and `delegate-handover.ts` (package-agent calls the info-agent as a tool).
-- **Package agent** — `agents/package-agent/package-agent.ts`, prompt `package-prompt.ts`. Guides a plant-package flow with directed questions, then a summary card and explicit confirmation. Tools: `validatePackage` (deterministic Prisma checks incl. hard budget cap), `savePackage` (re-validates before writing `packages` + `package_items`, FK to `customers`), `cancelPackage`, plus mode-dependent data access: `requestInfo` (router: empty execute, the orchestrator relays) or `askInfoAgent` (delegate: nested info-agent loop).
+```
+packages/core/src/mastra/
+├── index.ts        # the Mastra instance — the root of everything
+├── tarolas.ts      # PostgresStore (threads, messages, working memory, traces, scores)
+├── memoria.ts      # Memory: lastMessages + semanticRecall (PgVector) + workingMemory
+├── agents/         # 1 agent = 1 file
+├── tools/          # 1 tool = 1 file (createTool), its parts in a sibling dir of the same name
+├── workflows/      # deterministic step chains with human approval (suspend/resume)
+├── processors/     # input processors, in order: PII → RBAC → topic guardrail
+├── scorers/        # 4 deterministic + 1 LLM judge
+└── rag/            # PgVector knowledge base + the search tool
+```
 
-**`ORCHESTRATION_MODE=off|router|delegate`** (default `off`, read per-request by the server): `off` runs the unchanged single-agent path (no `data-agent`/`data-tool`/`data-package` parts are emitted); `router`/`delegate` run the orchestrator. See `docs/architektura.md` („Orchestrator — két handover-mód") for the diagram.
+**There is no hand-written loop.** `agent.stream()` / `agent.generate()` *is* the loop. Observability is the framework's job too: no custom `Trace`, no `ToolOutcome` report side-channel — traces, logs and scores go to Postgres and are read back in Studio (ADR-0004).
 
-### Tool layer (`packages/core/src/lib/tools/`)
+- **`plantbase-supervisor`** — entry point of the server chat path. Delegates via Mastra sub-agents (the `agents` field), which replaced the hand-written orchestrator: no `routeTo`/`requestInfo`/`askInfoAgent` signal tools, no router/delegate handover split, no flow-lock, and **no `ORCHESTRATION_MODE` env switch** — one path (ADR-0005). The field is dynamic: in customer role the catalog agent is not in the list at all, so it cannot be delegated to.
+- **`plantbase-query`** — NL → SQL → read-only catalog, plus the knowledge base. Tools: `katalogus_sql`, `tudasbazis_kereses`, `ugyfel_lekerdezes`. Never writes.
+- **`plantbase-katalogus`** — conversational catalog editing. Tools: `webshop_feed` (live Shopify `products.json`), `katalogus_sql`, `termek_mentes` (the **only** in-app write path).
+- **`plantbase-csomag`** — the plant-package flow. Tools: `csomag_ellenorzes`, `csomag_mentes`, `csomag_elvetes`; the human approval point is `workflows/csomag-workflow.ts` (suspend/resume).
 
-**One tool = one directory with everything it needs**; the shared `ToolOutcome` sits one level up (`tools/tool-outcome.ts`).
+Sub-agents get their **own memory thread** — sharing the caller's thread makes the Anthropic API reject the message order („does not support assistant message prefill"). See the comment block in `plantbase-supervisor.ts`.
+
+### Tool layer (`packages/core/src/mastra/tools/`)
+
+**One tool = one file** (`createTool`), its ingredients in a sibling directory named after it — `ls tools/` shows all seven tools on one screen:
 
 ```
 tools/
-├── tool-outcome.ts              # shared result shape (content, isError, summary, rowCount)
-├── run-sql/                     # run-sql-tool.ts + sql-guard.ts + db-readonly.ts (+ specs)
-├── get-client-preferences/      # get-client-preferences-tool.ts (+ spec)
-├── fetch-feed/                  # fetch-feed-tool.ts + shopify-feed.ts (the feed client)
-└── upsert-product/              # upsert-product-tool.ts + product-schema.ts + db-readwrite.ts
+├── katalogus-sql-tool.ts        # katalogus_sql        → katalogus-sql/{sql-guard,db-readonly}
+├── ugyfel-lekerdezes-tool.ts    # ugyfel_lekerdezes
+├── webshop-feed-tool.ts         # webshop_feed         → webshop-feed/shopify-feed
+├── termek-mentes-tool.ts        # termek_mentes        → termek-mentes/{product-schema,db-readwrite}
+├── csomag-{ellenorzes,mentes,elvetes}-tool.ts          → csomag/{package-validation,package-plan}
+└── prisma-client.ts             # shared by three tools
 ```
 
-File names carry their kind: `*-tool.ts` (model-facing tool), `*-agent.ts`, `*-prompt.ts`.
-
-The tool file itself contains the model-facing description, the permissive AI SDK `tool()` schema (type + describe), the **strict boundary validation** (Zod) in the `execute*` function, and the `<name>Tool(report)` factory. `execute*` functions **never throw** — they return a `ToolOutcome`, so even bad LLM input comes back as our own Hungarian error text, not an SDK exception. The `report` callback is the side-channel that feeds the full outcome to the `Trace` (the model only sees `content`). **Adding a tool = one new directory + one line in the agent's toolset** (`buildTools` in the agent file).
+The model-facing `id` is snake_case Hungarian. Every tool declares both an `inputSchema` and an **`outputSchema`**, and returns a structured object — not a JSON string. `execute` **never throws**: errors come back inside the schema (`sikeres: false` + a Hungarian message), so bad LLM input yields our own error text, not an SDK exception. Logging goes through `mastra?.getLogger()`. **Adding a tool = one new file + one line in the agent's `tools` map** (and one in `mastra/index.ts` if you want it standalone in Studio).
 
 ### Read/write separation (NFR1) — the core safety design
 
 The query path can **never** write. Three independent layers enforce it: (1) the `plantbase_ro` Postgres role (SELECT-only), (2) `sql-guard.ts` (only `SELECT`/`WITH … SELECT`, single statement, mandatory `LIMIT`), (3) every query runs inside `START TRANSACTION READ ONLY` (`db-readonly.ts`).
 
-Writes happen only via Prisma (migrations/seed) and the ingest agent's `upsertProduct`, which runs on a **separate read-write pg pool** (`db-readwrite.ts`) — strictly Zod-validated (`product-schema.ts`) and parameterized, keyed on `latin_name` for idempotent upsert. The agent cannot run raw write SQL.
+Writes happen only via Prisma (migrations/seed) and the catalog agent's `termek_mentes`, which runs on a **separate read-write pg pool** (`db-readwrite.ts`) — strictly Zod-validated (`product-schema.ts`) and parameterized, keyed on `latin_name` for idempotent upsert. The agent cannot run raw write SQL.
 
-This maps to **two DB URLs / two roles**: `DATABASE_URL` (read-write: Prisma + ingest upsert) and `DATABASE_URL_READONLY` (query agent `runSql`). Note the agent does **not** query through Prisma — `runSql` uses a direct `pg` read-only connection; Prisma is only schema/migration/seed/studio and the generated client (`packages/db/generated/client`).
+This maps to **two DB URLs / two roles**: `DATABASE_URL` (read-write: Prisma, `termek_mentes`, and all Mastra storage) and `DATABASE_URL_READONLY` (the `katalogus_sql` tool). Note the agent does **not** query the catalog through Prisma — `katalogus_sql` uses a direct `pg` read-only connection; Prisma is schema/migration/seed/studio, the generated client (`packages/db/generated/client`), and the customer/package tools.
+
+A fourth, softer layer sits on top: the `csak-olvaso-ut` scorer measures on every query-agent run whether a writing tool was called — a metric, not a guard, visible in Studio.
 
 ### Config boundary
 
@@ -92,7 +117,7 @@ This maps to **two DB URLs / two roles**: `DATABASE_URL` (read-write: Prisma + i
 
 ### Prompts
 
-The **product's** prompts to the LLM (`prompts.ts`, `ingest-prompts.ts`) are XML-tagged (`<role>`, `<schema>`, `<rules>`, `<tools>`, …) to reduce hallucination. This applies only to prompts the product sends the model, not to developer-facing prompts. The two agents have separate prompt files.
+The **product's** prompts to the LLM live in the agent file itself, as the Mastra `instructions` field (there are no separate `*-prompt.ts` files any more). They are XML-tagged (`<role>`, `<schema>`, `<rules>`, `<tools>`, …) to reduce hallucination. This applies only to prompts the product sends the model, not to developer-facing prompts.
 
 ### Feed ingest details
 
@@ -108,11 +133,13 @@ Mechanics: copy `docs/adr/_template.md` → `docs/adr/NNNN-short-title.md` (four
 
 ## Testing / QA
 
-`.claude/skills/flow-test/` — LLM-as-user conversation tests for the orchestrator/package flow (5 scenarios × router/delegate, HTTP + Playwright drivers). `.claude/skills/autotest/` — runs the Playwright difficulty-ladder **battery** (single→multi→complex→stress→trolling), evaluates the results into a self-contained HTML report with suggestions, asks which suggestions to implement, and logs the decision as an ADR.
+Beyond the unit tests, two levels run against a live app. **Scorers** (`packages/core/src/mastra/scorers/`) grade every agent run automatically — Hungarian answer, catalog grounding, RAG citation, read-only path, plus a sampled LLM judge; results land in Postgres and in Studio's Scores tab.
+
+`.claude/skills/flow-test/` — LLM-as-user conversation tests for the supervisor/package flow (HTTP + Playwright drivers). **Stale:** its 5 scenarios are still parameterised by the removed `router`/`delegate` modes; the skill needs updating to the single supervisor path. `.claude/skills/autotest/` — runs the Playwright difficulty-ladder **battery** (single→multi→complex→stress→trolling), evaluates the results into a self-contained HTML report with suggestions, asks which suggestions to implement, and logs the decision as an ADR.
 
 ## Reference docs
 
-Domain and decisions live in `docs/`: `architektura.md` (structure + key decisions), `adr/` (architecture decision records — the decision log), `system-prompt.md` (source of the SQL rules), `konvenciok.md` (project-agnostic TS conventions applied here), `ddd/model.md` + `ddd/glossary.md` (domain model + ubiquitous language), `stack.md`, `brs-plantbase.md`.
+Domain and decisions live in `docs/`: `architektura.md` (structure + key decisions), `adr/` (architecture decision records — the decision log), `system-prompt.md` (source of the SQL rules), `konvenciok.md` (project-agnostic TS conventions applied here), `ddd/model.md` + `ddd/glossary.md` (domain model + ubiquitous language), `mcp.md` (the MCP entrypoint: data-tool vs. agent-as-tool, stdio pitfalls, host wiring), `stack.md`, `brs-plantbase.md`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
